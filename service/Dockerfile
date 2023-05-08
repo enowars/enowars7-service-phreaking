@@ -1,5 +1,4 @@
 # Use a suitable base-image.
-FROM python:3-alpine
 
 # Create a seperate user and chown new directories if necessary
 RUN addgroup --system service

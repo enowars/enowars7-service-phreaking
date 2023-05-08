@@ -1,6 +1,6 @@
-version: '3'
+version: "3"
 services:
-  n0t3b00k:
+  phreaking:
     build: .
     # The code should be copied into the container using COPY.
     # Mount the data folder writable, so that information can be persisted across restarts.
