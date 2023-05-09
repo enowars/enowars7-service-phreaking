@@ -21,3 +21,4 @@ six==1.15.0
 typish==1.9.2
 urllib3==1.26.4
 Werkzeug==1.0.1
+pysctp

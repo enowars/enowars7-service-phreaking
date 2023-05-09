@@ -20,6 +20,7 @@ func serveClient(conn net.Conn, bufsize int) error {
 			return err
 		}
 		log.Printf("read: %d", n)
+		log.Printf("buffer: %s", buf)
 		n, err = conn.Write(buf[:n])
 		if err != nil {
 			log.Printf("write failed: %v", err)
@@ -89,7 +90,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to get write buf: %v", err)
 		}
-		*rcvbuf, err = wconn.GetWriteBuffer()
+		*rcvbuf, err = wconn.GetReadBuffer()
 		if err != nil {
 			log.Fatalf("failed to get read buf: %v", err)
 		}
