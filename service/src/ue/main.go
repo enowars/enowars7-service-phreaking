@@ -1,4 +1,4 @@
-package ue
+package main
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func Ue() {
+func main() {
 	// listen to incoming udp packets
 	udpServer, err := net.ListenPacket("udp", ":3000")
 	if err != nil {
