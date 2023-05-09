@@ -1,37 +1,46 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"log"
 	"net"
-	"time"
+	"strings"
 )
 
-func main() {
-	// listen to incoming udp packets
-	udpServer, err := net.ListenPacket("udp", ":3000")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer udpServer.Close()
-
+func handleConnection(c net.Conn) {
+	fmt.Printf("Serving %s\n", c.RemoteAddr().String())
 	for {
-		buf := make([]byte, 1024)
-		_, addr, err := udpServer.ReadFrom(buf)
+		netData, err := bufio.NewReader(c).ReadString('\n')
 		if err != nil {
-			continue
+			fmt.Println(err)
+			return
 		}
-		go response(udpServer, addr, buf)
-	}
 
+		temp := strings.TrimSpace(string(netData))
+		if temp == "STOP" {
+			break
+		}
+
+		result := "Henlo!\n"
+		c.Write([]byte(string(result)))
+	}
+	c.Close()
 }
 
-func response(udpServer net.PacketConn, addr net.Addr, buf []byte) {
-	time := time.Now().Format(time.ANSIC)
+func main() {
+	l, err := net.Listen("tcp4", ":3000")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer l.Close()
 
-	fmt.Printf("time received: %v. message: %v", time, string(buf))
-
-	responseStr := fmt.Sprintf("time received: %v. Your message: %v", time, string(buf))
-
-	udpServer.WriteTo([]byte(responseStr), addr)
+	for {
+		c, err := l.Accept()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		go handleConnection(c)
+	}
 }
