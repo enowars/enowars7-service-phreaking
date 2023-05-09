@@ -2,7 +2,10 @@ module phreaking/core
 
 go 1.20
 
-require github.com/free5gc/nas v1.1.0
+require (
+	git.cs.nctu.edu.tw/calee/sctp v1.1.0
+	github.com/free5gc/nas v1.1.0
+)
 
 require (
 	github.com/aead/cmac v0.0.0-20160719120800-7af84192f0b1 // indirect
