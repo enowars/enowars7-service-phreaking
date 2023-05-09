@@ -1,4 +1,4 @@
-module phreaking
+module phreaking/core
 
 go 1.20
 
