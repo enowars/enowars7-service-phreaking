@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"log"
@@ -20,7 +21,7 @@ func serveClient(conn net.Conn, bufsize int) error {
 			return err
 		}
 		log.Printf("read: %d", n)
-		log.Printf("buffer: %s", buf)
+		log.Printf("Packet contents: %s", hex.Dump(buf[32:n]))
 		n, err = conn.Write(buf[:n])
 		if err != nil {
 			log.Printf("write failed: %v", err)
