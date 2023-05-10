@@ -2,6 +2,7 @@ package ngap
 
 import (
 	"errors"
+	"phreaking/core/ngap/msgTypes"
 )
 
 func handler(buf []byte) (err error) {
@@ -11,52 +12,28 @@ func handler(buf []byte) (err error) {
 	// TODO: check buffer length according to message type
 
 	switch msgType {
-	case 1:
+	case msgTypes.NGSetupRequest:
 		handleNGSetupRequest()
-	case 2:
-		handleNGSetupResponse()
-	case 3:
-		handleNGSetupFailure()
-	case 4:
+	case msgTypes.InitUERegRequest:
 		handleInitUERegRequest()
-	case 5:
-		handleNASIdRequest()
-	case 6:
+	case msgTypes.NASIdResponse:
 		handleNASIdResponse()
-	case 7:
-		handleNASAuthRequest()
-	case 8:
+	case msgTypes.NASAuthResponse:
 		handleNASAuthResponse()
-	case 9:
-		handleNASSecurityModeCommand()
-	case 10:
+	case msgTypes.NASSecurityModeComplete:
 		handleNASSecurityModeComplete()
-	case 11:
-		handleInitialContextSetupRequestRegAcc()
-	case 12:
+	case msgTypes.UECapInfoIndication:
 		handleUECapInfoIndication()
-	case 13:
+	case msgTypes.InitialContextSetupResponse:
 		handleInitialContextSetupResponse()
-	case 14:
+	case msgTypes.RegisterComplete:
 		handleRegisterComplete()
-	case 15:
+	case msgTypes.PDUSessionResourceSetupRequest:
 		handlePDUSessionResourceSetupRequest()
-	case 16:
-		handlePDUSessionResourceSetupResponse()
-	case 17:
-		handlePDUSessionResourceReleaseCommand()
 	default:
-		return errors.New("invalid message type")
+		return errors.New("invalid message type for core")
 	}
 	return nil
-}
-
-func handlePDUSessionResourceReleaseCommand() {
-	panic("unimplemented")
-}
-
-func handlePDUSessionResourceSetupResponse() {
-	panic("unimplemented")
 }
 
 func handlePDUSessionResourceSetupRequest() {
@@ -75,15 +52,7 @@ func handleUECapInfoIndication() {
 	panic("unimplemented")
 }
 
-func handleInitialContextSetupRequestRegAcc() {
-	panic("unimplemented")
-}
-
 func handleNASSecurityModeComplete() {
-	panic("unimplemented")
-}
-
-func handleNASSecurityModeCommand() {
 	panic("unimplemented")
 }
 
@@ -91,27 +60,11 @@ func handleNASAuthResponse() {
 	panic("unimplemented")
 }
 
-func handleNASAuthRequest() {
-	panic("unimplemented")
-}
-
 func handleNASIdResponse() {
 	panic("unimplemented")
 }
 
-func handleNASIdRequest() {
-	panic("unimplemented")
-}
-
 func handleInitUERegRequest() {
-	panic("unimplemented")
-}
-
-func handleNGSetupFailure() {
-	panic("unimplemented")
-}
-
-func handleNGSetupResponse() {
 	panic("unimplemented")
 }
 
