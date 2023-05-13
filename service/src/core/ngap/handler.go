@@ -70,10 +70,15 @@ func handleInitUERegRequest() {
 
 func handleNGSetupRequest(buf []byte) {
 	var msg NGSetupRequestMsg
+	decodeMsg(buf, &msg)
+	fmt.Println("Decoded Setup request")
+}
+
+// Generic msg decoder
+func decodeMsg[T any](buf []byte, msgPtr *T) {
 	reader := bytes.NewReader(buf)
 	dec := gob.NewDecoder(reader)
-	if err := dec.Decode(&msg); err != nil {
+	if err := dec.Decode(&msgPtr); err != nil {
 		panic(err)
 	}
-	fmt.Println("Decoded Setup request")
 }
