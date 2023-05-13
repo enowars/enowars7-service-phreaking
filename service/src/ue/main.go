@@ -2,10 +2,18 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"net"
 	"strings"
 )
+
+type NGSetupRequestMsg struct {
+	GRANid int32
+	Tac    int32
+	Plmn   int32
+}
 
 func handleConnection(c net.Conn) {
 	fmt.Printf("Serving %s\n", c.RemoteAddr().String())
@@ -21,8 +29,22 @@ func handleConnection(c net.Conn) {
 			break
 		}
 
-		result := "Henlo!\n"
-		c.Write([]byte(string(result)))
+		if temp == "START" {
+			msg := NGSetupRequestMsg{1, 2, 3}
+
+			var b bytes.Buffer
+			b.WriteByte(0x00)
+			e := gob.NewEncoder(&b)
+			if err := e.Encode(msg); err != nil {
+				panic(err)
+			}
+			b.WriteByte(0x99)
+
+			fmt.Println("Encoded Struct ", b)
+
+			c.Write(b.Bytes())
+		}
+
 	}
 	c.Close()
 }
