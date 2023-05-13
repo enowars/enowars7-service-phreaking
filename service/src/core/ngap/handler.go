@@ -1,34 +1,34 @@
 package ngap
 
 import (
+	"bytes"
+	"encoding/gob"
 	"errors"
-	"phreaking/core/ngap/msgTypes"
+	"fmt"
 )
 
-func handler(buf []byte) (err error) {
+func HandleNGAP(buf []byte) (err error) {
 
 	msgType := int(buf[0])
 
-	// TODO: check buffer length according to message type
-
 	switch msgType {
-	case msgTypes.NGSetupRequest:
-		handleNGSetupRequest()
-	case msgTypes.InitUERegRequest:
+	case NGSetupRequest:
+		handleNGSetupRequest(buf[1:])
+	case InitUERegRequest:
 		handleInitUERegRequest()
-	case msgTypes.NASIdResponse:
+	case NASIdResponse:
 		handleNASIdResponse()
-	case msgTypes.NASAuthResponse:
+	case NASAuthResponse:
 		handleNASAuthResponse()
-	case msgTypes.NASSecurityModeComplete:
+	case NASSecurityModeComplete:
 		handleNASSecurityModeComplete()
-	case msgTypes.UECapInfoIndication:
+	case UECapInfoIndication:
 		handleUECapInfoIndication()
-	case msgTypes.InitialContextSetupResponse:
+	case InitialContextSetupResponse:
 		handleInitialContextSetupResponse()
-	case msgTypes.RegisterComplete:
+	case RegisterComplete:
 		handleRegisterComplete()
-	case msgTypes.PDUSessionResourceSetupRequest:
+	case PDUSessionResourceSetupRequest:
 		handlePDUSessionResourceSetupRequest()
 	default:
 		return errors.New("invalid message type for core")
@@ -68,6 +68,12 @@ func handleInitUERegRequest() {
 	panic("unimplemented")
 }
 
-func handleNGSetupRequest() {
-	panic("unimplemented")
+func handleNGSetupRequest(buf []byte) {
+	var msg NGSetupRequestMsg
+	reader := bytes.NewReader(buf)
+	dec := gob.NewDecoder(reader)
+	if err := dec.Decode(&msg); err != nil {
+		panic(err)
+	}
+	fmt.Println("Decoded Setup request")
 }

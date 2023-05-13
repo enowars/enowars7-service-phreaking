@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"phreaking/core/crypto"
+	"phreaking/core/ngap"
 	"strings"
 
 	"git.cs.nctu.edu.tw/calee/sctp"
@@ -21,13 +22,12 @@ func serveClient(conn net.Conn, bufsize int) error {
 			return err
 		}
 		log.Printf("read: %d", n)
-		log.Printf("Packet contents: %s", hex.Dump(buf[32:n]))
-		n, err = conn.Write(buf[:n])
-		if err != nil {
-			log.Printf("write failed: %v", err)
-			return err
-		}
-		log.Printf("write: %d", n)
+
+		data := buf[32:n] // remove excess bytes
+		log.Printf("Packet contents: %s", hex.Dump(data))
+		ngap.HandleNGAP(data)
+		ngap.SendMsg(conn, data)
+
 	}
 }
 
