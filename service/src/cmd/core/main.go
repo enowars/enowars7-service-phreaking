@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"phreaking/core/crypto"
-	"phreaking/core/ngap"
+	"phreaking/internal/core"
+	"phreaking/internal/core/crypto"
 	"strings"
 
 	"git.cs.nctu.edu.tw/calee/sctp"
@@ -25,8 +25,8 @@ func serveClient(conn net.Conn, bufsize int) error {
 
 		data := buf[32:n] // remove excess bytes
 		log.Printf("Packet contents: %s", hex.Dump(data))
-		ngap.HandleNGAP(data)
-		ngap.SendMsg(conn, data)
+		core.HandleNGAP(data)
+		core.SendMsg(conn, data)
 
 	}
 }

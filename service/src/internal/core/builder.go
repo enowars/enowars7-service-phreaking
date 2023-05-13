@@ -1,9 +1,4 @@
-package ngap
-
-import (
-	"bytes"
-	"encoding/gob"
-)
+package core
 
 func buildNGSetupResponse() {
 	panic("unimplemented")
@@ -35,13 +30,4 @@ func buildPDUSessionResourceReleaseCommand() {
 
 func buildPDUSessionResourceSetupResponse() {
 	panic("unimplemented")
-}
-
-// Generic message encoder
-func EncodeMsg[T any](t msgType, msgPtr *T) ([]byte, error) {
-	var b bytes.Buffer
-	b.WriteByte(byte(t))
-	e := gob.NewEncoder(&b)
-	err := e.Encode(&msgPtr)
-	return b.Bytes(), err
 }

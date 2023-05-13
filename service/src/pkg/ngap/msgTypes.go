@@ -1,9 +1,9 @@
 package ngap
 
-type msgType int
+type MsgType int
 
 const (
-	NGSetupRequest msgType = iota
+	NGSetupRequest MsgType = iota
 	NGSetupResponse
 	NGSetupFailure
 	InitUERegRequest

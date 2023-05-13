@@ -1,4 +1,4 @@
-package ngap
+package core
 
 import (
 	"log"

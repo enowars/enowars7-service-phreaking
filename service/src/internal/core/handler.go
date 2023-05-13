@@ -1,9 +1,8 @@
-package ngap
+package core
 
 import (
-	"bytes"
-	"encoding/gob"
 	"errors"
+	"phreaking/pkg/ngap"
 )
 
 var (
@@ -12,30 +11,30 @@ var (
 
 func HandleNGAP(buf []byte) (err error) {
 
-	msgType := msgType(buf[0])
+	msgType := ngap.MsgType(buf[0])
 
 	switch msgType {
-	case NGSetupRequest:
+	case ngap.NGSetupRequest:
 		err := handleNGSetupRequest(buf[1:])
 		if err != nil {
 			return err
 		}
 
-	case InitUERegRequest:
+	case ngap.InitUERegRequest:
 		handleInitUERegRequest()
-	case NASIdResponse:
+	case ngap.NASIdResponse:
 		handleNASIdResponse()
-	case NASAuthResponse:
+	case ngap.NASAuthResponse:
 		handleNASAuthResponse()
-	case NASSecurityModeComplete:
+	case ngap.NASSecurityModeComplete:
 		handleNASSecurityModeComplete()
-	case UECapInfoIndication:
+	case ngap.UECapInfoIndication:
 		handleUECapInfoIndication()
-	case InitialContextSetupResponse:
+	case ngap.InitialContextSetupResponse:
 		handleInitialContextSetupResponse()
-	case RegisterComplete:
+	case ngap.RegisterComplete:
 		handleRegisterComplete()
-	case PDUSessionResourceSetupRequest:
+	case ngap.PDUSessionResourceSetupRequest:
 		handlePDUSessionResourceSetupRequest()
 	default:
 		return errors.New("invalid message type for core")
@@ -76,17 +75,10 @@ func handleInitUERegRequest() {
 }
 
 func handleNGSetupRequest(buf []byte) error {
-	var msg NGSetupRequestMsg
-	err := DecodeMsg(buf, &msg)
+	var msg ngap.NGSetupRequestMsg
+	err := ngap.DecodeMsg(buf, &msg)
 	if err != nil {
 		return errDecode
 	}
 	return nil
-}
-
-// Generic message decoder
-func DecodeMsg[T any](buf []byte, msgPtr *T) error {
-	reader := bytes.NewReader(buf)
-	dec := gob.NewDecoder(reader)
-	return dec.Decode(&msgPtr)
 }
