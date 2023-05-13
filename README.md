@@ -1,4 +1,4 @@
-6G phreaking
+5Go phreaking
 ====================
 
 This service is a simulation of a 5G network. The service consist of two main parts:

@@ -10,6 +10,4 @@ Service documentation
 
 ![Protocol attack](./protocol_attack.png)
 
-Integrity protection IA4 is implemented to calculate the mac from a sha256 hash of message.
-
 # Exploits
