@@ -4,16 +4,23 @@ import (
 	"bytes"
 	"encoding/gob"
 	"errors"
-	"fmt"
+)
+
+var (
+	errDecode = errors.New("cannot decode message")
 )
 
 func HandleNGAP(buf []byte) (err error) {
 
-	msgType := int(buf[0])
+	msgType := msgType(buf[0])
 
 	switch msgType {
 	case NGSetupRequest:
-		handleNGSetupRequest(buf[1:])
+		err := handleNGSetupRequest(buf[1:])
+		if err != nil {
+			return err
+		}
+
 	case InitUERegRequest:
 		handleInitUERegRequest()
 	case NASIdResponse:
@@ -68,17 +75,18 @@ func handleInitUERegRequest() {
 	panic("unimplemented")
 }
 
-func handleNGSetupRequest(buf []byte) {
+func handleNGSetupRequest(buf []byte) error {
 	var msg NGSetupRequestMsg
-	decodeMsg(buf, &msg)
-	fmt.Println("Decoded Setup request")
+	err := DecodeMsg(buf, &msg)
+	if err != nil {
+		return errDecode
+	}
+	return nil
 }
 
-// Generic msg decoder
-func decodeMsg[T any](buf []byte, msgPtr *T) {
+// Generic message decoder
+func DecodeMsg[T any](buf []byte, msgPtr *T) error {
 	reader := bytes.NewReader(buf)
 	dec := gob.NewDecoder(reader)
-	if err := dec.Decode(&msgPtr); err != nil {
-		panic(err)
-	}
+	return dec.Decode(&msgPtr)
 }
