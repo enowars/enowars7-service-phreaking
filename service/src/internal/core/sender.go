@@ -12,5 +12,5 @@ func SendMsg(conn net.Conn, msg []byte) (err error) {
 		return err
 	}
 	log.Printf("write: %d", n)
-	return
+	return nil
 }

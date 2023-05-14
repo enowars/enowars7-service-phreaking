@@ -25,7 +25,7 @@ func serveClient(conn net.Conn, bufsize int) error {
 
 		data := buf[32:n] // remove excess bytes
 		log.Printf("Packet contents: %s", hex.Dump(data))
-		core.HandleNGAP(data)
+		core.HandleNGAP(conn, data)
 		core.SendMsg(conn, data)
 
 	}

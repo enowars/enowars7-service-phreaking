@@ -35,6 +35,16 @@ type NGSetupRequestMsg struct {
 	Plmn   int32
 }
 
+type NGSetupResponseMsg struct {
+	AmfName     string
+	GUAMPlmn    int32
+	AMFRegionId int16
+	AMFSetID    int32
+	AMFPtr      int32
+	AMFCap      uint8
+	Plmn        int32
+}
+
 /*
 func (msg NGSetupRequestMsg) isCool() bool {
 	return (msg.Tac == 69)

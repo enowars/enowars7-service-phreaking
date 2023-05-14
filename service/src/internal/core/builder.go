@@ -1,6 +1,6 @@
 package core
 
-func buildNGSetupResponse() {
+func buildNGSetupResponse() []byte {
 	panic("unimplemented")
 }
 
