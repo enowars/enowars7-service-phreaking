@@ -6,7 +6,8 @@ const (
 	NGSetupRequest MsgType = iota
 	NGSetupResponse
 	NGSetupFailure
-	InitUERegRequest
+	InitUEMessage
+	NASRegRequest
 	NASIdRequest
 	NASIdResponse
 	NASAuthRequest
@@ -22,27 +23,55 @@ const (
 	PDUSessionResourceReleaseCommand
 )
 
-/*
-type baseMsg struct {
-	Type msgType
-}
-*/
-
 type NGSetupRequestMsg struct {
-	//	baseMsg
-	GRANid int32
-	Tac    int32
-	Plmn   int32
+	GranId uint32
+	Tac    uint32
+	Plmn   uint32
 }
 
 type NGSetupResponseMsg struct {
 	AmfName     string
-	GUAMPlmn    int32
-	AMFRegionId int16
-	AMFSetID    int32
-	AMFPtr      int32
-	AMFCap      uint8
-	Plmn        int32
+	GuamPlmn    uint32
+	AmfRegionId uint16
+	AmfSetId    uint32
+	AmfPtr      uint32
+	AmfCap      uint8
+	Plmn        uint32
+}
+
+type InitUEMessageMsg struct {
+	NasPdu      []byte
+	RanUeNgapId uint32
+	// Location
+}
+
+type MobileIdType struct {
+	// SupiFormat uint8
+	// IdType
+	Mcc uint8
+	Mnc uint8
+	// Routing indicator
+	ProtecScheme uint8
+	HomeNetPki   uint8
+	Msin         uint
+}
+
+type SecCapType struct {
+	// 	8  |  7  | .. |  1
+	// EA0 | EA1 | .. | EA7
+	EA uint8
+	// 	8  |  7  | .. |  1
+	// IA0 | IA1 | .. | IA7
+	IA uint8
+}
+
+type NASRegRequestMsg struct {
+	// Extended protocol discriminator
+	SecHeader uint8
+	// 5GS registration type
+	// ngKsi
+	MobileId MobileIdType
+	SecCap   SecCapType
 }
 
 /*

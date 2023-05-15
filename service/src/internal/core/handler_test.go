@@ -9,20 +9,37 @@ import (
 )
 
 func TestHandleNGAP(t *testing.T) {
-	_, w := net.Pipe()
+	server, _ := net.Pipe()
 	buf := make([]byte, 8)
-	err := HandleNGAP(w, buf)
+	err := HandleNGAP(server, buf)
 	assert.Error(t, err)
 
-	w.Close()
+	server.Close()
 
-	server, _ := net.Pipe()
-	msg := ngap.NGSetupRequestMsg{GRANid: 1, Tac: 2, Plmn: 3}
-	buf, err = ngap.EncodeMsg(ngap.NGSetupRequest, &msg)
+	server, _ = net.Pipe()
+	setupMsg := ngap.NGSetupRequestMsg{GranId: 1, Tac: 2, Plmn: 3}
+	buf, err = ngap.EncodeMsg(ngap.NGSetupRequest, &setupMsg)
 	assert.Nil(t, err)
 
 	go func() {
-		err = HandleNGAP(w, buf)
+		err = HandleNGAP(server, buf)
+		assert.Nil(t, err)
+		server.Close()
+	}()
+
+	server, _ = net.Pipe()
+	regMsg := ngap.NASRegRequestMsg{SecHeader: 0,
+		MobileId: ngap.MobileIdType{Mcc: 0, Mnc: 0, ProtecScheme: 0, HomeNetPki: 0, Msin: 0},
+		SecCap:   ngap.SecCapType{EA: 0, IA: 0},
+	}
+	pdu, err := ngap.EncodeMsg(ngap.NGSetupRequest, &regMsg)
+	assert.Nil(t, err)
+
+	initUeMsg := ngap.InitUEMessageMsg{NasPdu: pdu, RanUeNgapId: 1}
+	buf, err = ngap.EncodeMsg(ngap.InitUEMessage, &initUeMsg)
+
+	go func() {
+		err = HandleNGAP(server, buf)
 		assert.Nil(t, err)
 		server.Close()
 	}()
