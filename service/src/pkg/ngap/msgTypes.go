@@ -3,10 +3,15 @@ package ngap
 type MsgType int
 
 const (
+	// Interface Management Messages
 	NGSetupRequest MsgType = iota
 	NGSetupResponse
 	NGSetupFailure
+	// NAS Transport
 	InitUEMessage
+	DownNASTrans
+	UpNASTrans
+	// NAS-PDU (GMMM)
 	NASRegRequest
 	NASIdRequest
 	NASIdResponse
@@ -40,8 +45,21 @@ type NGSetupResponseMsg struct {
 }
 
 type InitUEMessageMsg struct {
-	NasPdu      []byte
 	RanUeNgapId uint32
+	NasPdu      []byte
+	// Location
+}
+
+type DownNASTransMsg struct {
+	AmfUeNgapId uint32
+	RanUeNgapId uint32
+	NasPdu      []byte
+}
+
+type UpNASTransMsg struct {
+	AmfUeNgapId uint32
+	RanUeNgapId uint32
+	NasPdu      []byte
 	// Location
 }
 
@@ -72,6 +90,16 @@ type NASRegRequestMsg struct {
 	// ngKsi
 	MobileId MobileIdType
 	SecCap   SecCapType
+}
+
+type NASAuthRequestMsg struct {
+	SecHeader uint8
+	Rand      []byte
+}
+
+type NASAuthResponseMsg struct {
+	SecHeader uint8
+	Res       []byte
 }
 
 /*
