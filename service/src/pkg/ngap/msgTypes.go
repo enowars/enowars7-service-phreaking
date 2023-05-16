@@ -102,6 +102,14 @@ type NASAuthResponseMsg struct {
 	Res       []byte
 }
 
+type NASSecurityModeCommandMsg struct {
+	SecHeader uint8
+	// TODO: encode more efficently
+	EaAlg  uint8
+	IaAlg  uint8
+	SecCap SecCapType
+}
+
 /*
 func (msg NGSetupRequestMsg) isCool() bool {
 	return (msg.Tac == 69)

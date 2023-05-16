@@ -8,6 +8,9 @@ import (
 	"phreaking/pkg/ngap"
 )
 
+var ea = make(map[net.Conn]uint8)
+var ia = make(map[net.Conn]uint8)
+
 func handleConnection(c net.Conn) {
 	fmt.Printf("Serving %s\n", c.RemoteAddr().String())
 
@@ -36,12 +39,19 @@ func handleConnection(c net.Conn) {
 
 		switch msgType {
 		case ngap.DownNASTrans:
+
 			var msg ngap.DownNASTransMsg
 			ngap.DecodeMsg(buf[1:], &msg)
 			pduType := ngap.MsgType(msg.NasPdu[0])
+
 			switch pduType {
 			case ngap.NASAuthRequest:
-				err := handleNGAuthRequest(c, msg.NasPdu[1:])
+				err := handleNASAuthRequest(c, msg.NasPdu[1:])
+				if err != nil {
+					fmt.Printf("Error: %s", err)
+				}
+			case ngap.NASSecurityModeCommand:
+				err := handleNASSecurityModeCommand(c, msg.NasPdu[1:])
 				if err != nil {
 					fmt.Printf("Error: %s", err)
 				}
@@ -53,14 +63,33 @@ func handleConnection(c net.Conn) {
 	c.Close()
 }
 
-func handleNGAuthRequest(c net.Conn, buf []byte) error {
+func handleNASSecurityModeCommand(c net.Conn, buf []byte) error {
+	var msg ngap.NASSecurityModeCommandMsg
+	err := ngap.DecodeMsg(buf, &msg)
+	if err != nil {
+		return errors.New("cannot decode!")
+	}
+
+	ea[c] = msg.EaAlg
+	ia[c] = msg.IaAlg
+
+	/* encrypt msg
+	if ea[c] == 1 {
+
+	}
+	*/
+
+	return nil
+}
+
+func handleNASAuthRequest(c net.Conn, buf []byte) error {
 	var msg ngap.NASAuthRequestMsg
 	err := ngap.DecodeMsg(buf, &msg)
 	if err != nil {
 		return errors.New("cannot decode!")
 	}
 
-	res := crypto.ComputeRes(msg.Rand)
+	res := crypto.EncryptAES(msg.Rand)
 
 	authRes := ngap.NASAuthResponseMsg{SecHeader: 0, Res: res}
 	pdu, _ := ngap.EncodeMsg(ngap.NASAuthResponse, &authRes)

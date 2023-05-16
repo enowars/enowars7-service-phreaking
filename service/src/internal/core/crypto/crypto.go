@@ -27,16 +27,16 @@ func PrintCrypto() {
 	fmt.Println(NIA4(ik, 1, byte(0), 1, []byte("msg"), 3))
 }
 
-func ComputeRes(inputRand []byte) (res []byte) {
+func EncryptAES(input []byte) (res []byte) {
 	c, err := aes.NewCipher(key)
 	if err != nil {
 		panic(err)
 	}
 	// allocate space for ciphered data
-	out := make([]byte, len(inputRand))
+	out := make([]byte, len(input))
 
 	// encrypt
-	c.Encrypt(out, []byte(inputRand))
+	c.Encrypt(out, []byte(input))
 	return out
 
 }
@@ -46,4 +46,19 @@ func ComputeHash(input []byte) (hash string) {
 	h.Write(input)
 	bs := h.Sum(nil)
 	return string(bs)
+}
+
+func DecryptAES(ct []byte) (res []byte) {
+	c, err := aes.NewCipher(key)
+	if err != nil {
+		panic(err)
+	}
+
+	pt := make([]byte, len(ct))
+	c.Decrypt(pt, ct)
+
+	//	s := string(pt[:])
+	//	fmt.Println("DECRYPTED:", s)
+
+	return pt
 }

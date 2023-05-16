@@ -19,6 +19,8 @@ var lastHandle = make(map[net.Conn]int)
 var ranUeNgapId = make(map[net.Conn]int)
 var amfUeNgapId = make(map[net.Conn]int)
 var randTokens = make(map[net.Conn][]byte)
+var ea = make(map[net.Conn]uint8)
+var ia = make(map[net.Conn]uint8)
 
 func HandleNGAP(c net.Conn, buf []byte) error {
 	msgType := ngap.MsgType(buf[0])
@@ -122,6 +124,8 @@ func handleNASRegRequest(c net.Conn, buf []byte) error {
 		return errDecode
 	}
 	lastHandle[c] = int(ngap.NASRegRequest)
+	ea[c] = msg.SecCap.EA
+	ia[c] = msg.SecCap.IA
 
 	randToken := make([]byte, 32)
 	rand.Read(randToken)
@@ -155,7 +159,7 @@ func handleNASAuthResponse(c net.Conn, buf []byte) error {
 	}
 	lastHandle[c] = int(ngap.NASAuthResponse)
 
-	kres := crypto.ComputeRes(randTokens[c])
+	kres := crypto.EncryptAES(randTokens[c])
 	hkres := crypto.ComputeHash(kres)
 	hres := crypto.ComputeHash(msg.Res)
 
@@ -164,7 +168,16 @@ func handleNASAuthResponse(c net.Conn, buf []byte) error {
 	}
 	fmt.Println("AUTHENTICATION SUCCESSFULL")
 
-	return nil
+	secModeCmd := ngap.NASSecurityModeCommandMsg{SecHeader: 1, EaAlg: ea[c],
+		IaAlg: ia[c], SecCap: ngap.SecCapType{EA: ea[c], IA: ia[c]},
+	}
+
+	pdu, _ := ngap.EncodeMsg(ngap.NASSecurityModeCommand, &secModeCmd)
+
+	downTrans := ngap.DownNASTransMsg{AmfUeNgapId: uint32(amfUeNgapId[c]), RanUeNgapId: uint32(ranUeNgapId[c]), NasPdu: pdu}
+	downTransBuf, _ := ngap.EncodeMsg(ngap.DownNASTrans, &downTrans)
+
+	return SendMsg(c, downTransBuf)
 }
 
 func handleNGSetupRequest(c net.Conn, buf []byte) error {
