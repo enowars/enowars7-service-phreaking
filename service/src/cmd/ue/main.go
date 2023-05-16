@@ -16,7 +16,7 @@ func handleConnection(c net.Conn) {
 
 	regMsg := ngap.NASRegRequestMsg{SecHeader: 0,
 		MobileId: ngap.MobileIdType{Mcc: 0, Mnc: 0, ProtecScheme: 0, HomeNetPki: 0, Msin: 0},
-		SecCap:   ngap.SecCapType{EA: 0, IA: 0},
+		SecCap:   ngap.SecCapType{EA: 1, IA: 0},
 	}
 
 	pdu, _ := ngap.EncodeMsg(ngap.NASRegRequest, &regMsg)
@@ -73,12 +73,29 @@ func handleNASSecurityModeCommand(c net.Conn, buf []byte) error {
 	ea[c] = msg.EaAlg
 	ia[c] = msg.IaAlg
 
-	/* encrypt msg
+	pduReq := ngap.PDUSessionEstRequestMsg{PduSesId: 0, PduSesType: 2}
+
+	var pdu []byte
+
 	if ea[c] == 1 {
-
+		pdu, err = ngap.EncodeEncMsg(ngap.PDUSessionEstRequest, &pduReq)
+		if err != nil {
+			fmt.Println(err)
+		}
+	} else {
+		pdu, err = ngap.EncodeMsg(ngap.PDUSessionEstRequest, &pduReq)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
-	*/
 
+	up := ngap.UpNASTransMsg{NasPdu: pdu, RanUeNgapId: 1}
+	buf, err = ngap.EncodeMsg(ngap.UpNASTrans, &up)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	c.Write(buf)
 	return nil
 }
 

@@ -64,10 +64,66 @@ func handleNASPDU(c net.Conn, buf []byte) error {
 		if err != nil {
 			return err
 		}
+	case ngap.PDUSessionEstRequest:
+		err := handlePDUSessionEstRequest(c, buf[1:])
+		if err != nil {
+			return err
+		}
 	default:
 		return errors.New("invalid message type for NAS-PDU")
 	}
 	return nil
+}
+
+func handlePDUSessionEstRequest(c net.Conn, buf []byte) error {
+	var msg ngap.PDUSessionEstRequestMsg
+
+	if ea[c] == 1 {
+		buf = crypto.DecryptAES(buf)
+	}
+
+	err := ngap.DecodeMsg(buf, &msg)
+	if err != nil {
+		fmt.Println("TREFF")
+		return errDecode
+	}
+
+	lastHandle[c] = int(ngap.PDUSessionEstRequest)
+
+	var pduAddr []byte
+
+	switch msg.PduSesType {
+	case 1:
+		pduAddr = []byte{0xff, 0x00, 0x00, 0xff}
+	case 2:
+		pduAddr = []byte("ENO{GOGOGO5G}")
+	default:
+		pduAddr = []byte{10, 0, 0, 1}
+	}
+
+	pduAcc := ngap.PDUSessionEstAcceptMsg{PduSesId: msg.PduSesId, PduAddress: pduAddr}
+
+	var pdu []byte
+
+	if ea[c] == 1 {
+		pdu, err = ngap.EncodeEncMsg(ngap.PDUSessionEstAccept, &pduAcc)
+		if err != nil {
+			fmt.Println(err)
+		}
+	} else {
+		pdu, err = ngap.EncodeMsg(ngap.PDUSessionEstAccept, &pduAcc)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+
+	down := ngap.DownNASTransMsg{NasPdu: pdu, RanUeNgapId: 1}
+	buf, err = ngap.EncodeMsg(ngap.UpNASTrans, &down)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	return SendMsg(c, buf)
 }
 
 func handlePDUSessionResourceSetupRequest() {
@@ -159,9 +215,10 @@ func handleNASAuthResponse(c net.Conn, buf []byte) error {
 	}
 	lastHandle[c] = int(ngap.NASAuthResponse)
 
-	kres := crypto.EncryptAES(randTokens[c])
-	hkres := crypto.ComputeHash(kres)
-	hres := crypto.ComputeHash(msg.Res)
+	dec := crypto.DecryptAES(msg.Res)
+
+	hkres := crypto.ComputeHash(dec)
+	hres := crypto.ComputeHash(randTokens[c])
 
 	if hkres != hres {
 		return errAuth

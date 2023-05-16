@@ -23,8 +23,8 @@ const (
 	UECapInfoIndication
 	InitialContextSetupResponse
 	RegisterComplete
-	PDUSessionResourceSetupRequest
-	PDUSessionResourceSetupResponse
+	PDUSessionEstRequest
+	PDUSessionEstAccept
 	PDUSessionResourceReleaseCommand
 )
 
@@ -108,6 +108,23 @@ type NASSecurityModeCommandMsg struct {
 	EaAlg  uint8
 	IaAlg  uint8
 	SecCap SecCapType
+}
+
+type PDUSessionEstRequestMsg struct {
+	PduSesId uint8
+	// 0 = IPv4, 1 = IPv6, 2 = Flag ;)
+	PduSesType uint8
+	// add integrity protetion maximum data rate
+}
+
+type PDUSessionEstAcceptMsg struct {
+	PduSesId uint8
+	// 0 = IPv4, 1 = IPv6, 2 = Flag ;)
+	PduSesType uint8
+	PduAddress []byte
+	// SSC
+	// QoS
+	// AMBR
 }
 
 /*

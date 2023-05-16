@@ -28,22 +28,32 @@ core.connect(("0.0.0.0", 3399))
 ue = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 ue.connect(("0.0.0.0", 3000))
 
-# InitUE
+print("InitUe")
 ue_data = ue.recv(1024)
 print(ue_data, "\n")
 core.sendall(ue_data)
 
-# AuthReq
+print("AuthReq")
 core_data = core.recv(1024)
 print(core_data, "\n")
 ue.sendall(core_data)
 
-# AuthRes
+print("AuthRes")
 ue_data = ue.recv(1024)
 print(ue_data, "\n")
 core.sendall(ue_data)
 
-# SecModeCmd
+print("SecModeCmd")
+core_data = core.recv(1024)
+print(core_data, "\n")
+ue.sendall(core_data)
+
+print("PDUEstReq")
+ue_data = ue.recv(1024)
+print(ue_data, "\n")
+core.sendall(ue_data)
+
+print("PDUEstAcc")
 core_data = core.recv(1024)
 print(core_data, "\n")
 ue.sendall(core_data)

@@ -2,8 +2,12 @@ package crypto
 
 import (
 	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
+	"io"
+	"log"
 
 	"github.com/free5gc/nas/security"
 )
@@ -27,20 +31,6 @@ func PrintCrypto() {
 	fmt.Println(NIA4(ik, 1, byte(0), 1, []byte("msg"), 3))
 }
 
-func EncryptAES(input []byte) (res []byte) {
-	c, err := aes.NewCipher(key)
-	if err != nil {
-		panic(err)
-	}
-	// allocate space for ciphered data
-	out := make([]byte, len(input))
-
-	// encrypt
-	c.Encrypt(out, []byte(input))
-	return out
-
-}
-
 func ComputeHash(input []byte) (hash string) {
 	h := sha256.New()
 	h.Write(input)
@@ -48,6 +38,40 @@ func ComputeHash(input []byte) (hash string) {
 	return string(bs)
 }
 
+func EncryptAES(input []byte) (res []byte) {
+	aesBlock, err := aes.NewCipher(key)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	gcmInstance, err := cipher.NewGCM(aesBlock)
+	if err != nil {
+		fmt.Println(err)
+	}
+	nonce := make([]byte, gcmInstance.NonceSize())
+	_, _ = io.ReadFull(rand.Reader, nonce)
+	return gcmInstance.Seal(nonce, nonce, input, nil)
+}
+
+func DecryptAES(ct []byte) (res []byte) {
+	aesBlock, err := aes.NewCipher(key)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	gcmInstance, err := cipher.NewGCM(aesBlock)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	nonceSize := gcmInstance.NonceSize()
+	nonce, cipheredText := ct[:nonceSize], ct[nonceSize:]
+	originalText, err := gcmInstance.Open(nil, nonce, cipheredText, nil)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	return originalText
+}
+
+/*
 func DecryptAES(ct []byte) (res []byte) {
 	c, err := aes.NewCipher(key)
 	if err != nil {
@@ -62,3 +86,18 @@ func DecryptAES(ct []byte) (res []byte) {
 
 	return pt
 }
+
+func EncryptAES(input []byte) (res []byte) {
+	c, err := aes.NewCipher(key)
+	if err != nil {
+		panic(err)
+	}
+	// allocate space for ciphered data
+	out := make([]byte, len(input))
+
+	// encrypt
+	c.Encrypt(out, input)
+	return out
+
+}
+*/
