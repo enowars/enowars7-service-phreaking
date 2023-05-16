@@ -101,9 +101,7 @@ func handleInitUEMessage(c net.Conn, buf []byte) error {
 	lastHandle[c] = int(ngap.InitUEMessage)
 	ranUeNgapId[c] = int(msg.RanUeNgapId)
 
-	handleNASPDU(c, buf)
-
-	return nil
+	return handleNASPDU(c, msg.NasPdu)
 }
 
 func handleUpNASTrans(c net.Conn, buf []byte) error {
@@ -114,9 +112,7 @@ func handleUpNASTrans(c net.Conn, buf []byte) error {
 	}
 	lastHandle[c] = int(ngap.UpNASTrans)
 
-	handleNASPDU(c, msg.NasPdu)
-
-	return nil
+	return handleNASPDU(c, msg.NasPdu)
 }
 
 func handleNASRegRequest(c net.Conn, buf []byte) error {
@@ -148,8 +144,7 @@ func handleNASRegRequest(c net.Conn, buf []byte) error {
 		return errEncode
 	}
 
-	SendMsg(c, []byte(downBuf))
-	return nil
+	return SendMsg(c, downBuf)
 }
 
 func handleNASAuthResponse(c net.Conn, buf []byte) error {

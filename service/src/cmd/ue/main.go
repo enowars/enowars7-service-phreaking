@@ -1,52 +1,76 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
-	"encoding/gob"
+	"errors"
 	"fmt"
 	"net"
-	"strings"
+	"phreaking/internal/core/crypto"
+	"phreaking/pkg/ngap"
 )
-
-type NGSetupRequestMsg struct {
-	GRANid int32
-	Tac    int32
-	Plmn   int32
-}
 
 func handleConnection(c net.Conn) {
 	fmt.Printf("Serving %s\n", c.RemoteAddr().String())
+
+	regMsg := ngap.NASRegRequestMsg{SecHeader: 0,
+		MobileId: ngap.MobileIdType{Mcc: 0, Mnc: 0, ProtecScheme: 0, HomeNetPki: 0, Msin: 0},
+		SecCap:   ngap.SecCapType{EA: 0, IA: 0},
+	}
+
+	pdu, _ := ngap.EncodeMsg(ngap.NASRegRequest, &regMsg)
+
+	// TODO: remove gNB encapsulation
+	initUeMsg := ngap.InitUEMessageMsg{NasPdu: pdu, RanUeNgapId: 1}
+	buf, _ := ngap.EncodeMsg(ngap.InitUEMessage, &initUeMsg)
+	c.Write(buf)
+
 	for {
-		netData, err := bufio.NewReader(c).ReadString('\n')
+		buf := make([]byte, 1024)
+
+		//len, err := c.Read(buf)
+		_, err := c.Read(buf)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("Error reading: %#v\n", err)
 			return
 		}
+		msgType := ngap.MsgType(buf[0])
 
-		temp := strings.TrimSpace(string(netData))
-		if temp == "STOP" {
-			break
-		}
-
-		if temp == "START" {
-			msg := NGSetupRequestMsg{1, 2, 3}
-
-			var b bytes.Buffer
-			b.WriteByte(0x00)
-			e := gob.NewEncoder(&b)
-			if err := e.Encode(msg); err != nil {
-				panic(err)
+		switch msgType {
+		case ngap.DownNASTrans:
+			var msg ngap.DownNASTransMsg
+			ngap.DecodeMsg(buf[1:], &msg)
+			pduType := ngap.MsgType(msg.NasPdu[0])
+			switch pduType {
+			case ngap.NASAuthRequest:
+				err := handleNGAuthRequest(c, msg.NasPdu[1:])
+				if err != nil {
+					fmt.Printf("Error: %s", err)
+				}
 			}
-			b.WriteByte(0x99)
-
-			fmt.Println("Encoded Struct ", b)
-
-			c.Write(b.Bytes())
+		default:
+			fmt.Println("invalid message type for UE")
 		}
-
 	}
 	c.Close()
+}
+
+func handleNGAuthRequest(c net.Conn, buf []byte) error {
+	var msg ngap.NASAuthRequestMsg
+	err := ngap.DecodeMsg(buf, &msg)
+	if err != nil {
+		return errors.New("cannot decode!")
+	}
+
+	res := crypto.ComputeRes(msg.Rand)
+
+	authRes := ngap.NASAuthResponseMsg{SecHeader: 0, Res: res}
+	pdu, _ := ngap.EncodeMsg(ngap.NASAuthResponse, &authRes)
+
+	// TODO: remove gNB encapsulation
+	up := ngap.UpNASTransMsg{NasPdu: pdu, RanUeNgapId: 1}
+	buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
+
+	c.Write(buf)
+	return nil
 }
 
 func main() {

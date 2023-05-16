@@ -2,15 +2,10 @@ package main
 
 import (
 	"encoding/hex"
-	"flag"
 	"fmt"
 	"log"
 	"net"
 	"phreaking/internal/core"
-	"phreaking/internal/core/crypto"
-	"strings"
-
-	"git.cs.nctu.edu.tw/calee/sctp"
 )
 
 func serveClient(conn net.Conn, bufsize int) error {
@@ -26,11 +21,27 @@ func serveClient(conn net.Conn, bufsize int) error {
 		data := buf[32:n] // remove excess bytes
 		log.Printf("Packet contents: %s", hex.Dump(data))
 		core.HandleNGAP(conn, data)
-		core.SendMsg(conn, data)
 
 	}
 }
+func handleConnection(c net.Conn) {
+	fmt.Printf("Serving %s\n", c.RemoteAddr().String())
 
+	for {
+		buf := make([]byte, 1024)
+
+		//len, err := c.Read(buf)
+		_, err := c.Read(buf)
+		if err != nil {
+			fmt.Printf("Error reading: %#v\n", err)
+			return
+		}
+		core.HandleNGAP(c, buf)
+	}
+	c.Close()
+}
+
+/*
 func main() {
 	fmt.Println("Hello world!")
 	crypto.PrintCrypto()
@@ -100,4 +111,24 @@ func main() {
 		go serveClient(wconn, *bufsize)
 	}
 
+}
+
+*/
+
+func main() {
+	l, err := net.Listen("tcp4", ":3399")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer l.Close()
+
+	for {
+		c, err := l.Accept()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		go handleConnection(c)
+	}
 }
