@@ -1,6 +1,6 @@
 version: "3"
 services:
-  phreaking:
+  phreaking-core:
     build: .
     # The code should be copied into the container using COPY.
     # Mount the data folder writable, so that information can be persisted across restarts.
@@ -8,4 +8,11 @@ services:
       - ./data/:/data:rw
     # Define the port mapping (external:internal port)
     ports:
-      - "2323:8000"
+      - "2323:3399"
+    entrypoint: /core-entrypoint.sh
+  phreaking-ue:
+    build: .
+    # Define the port mapping (external:internal port)
+    ports:
+      - "3232:3000"
+    entrypoint: /ue-entrypoint.sh

@@ -23,10 +23,10 @@ sk.close()
 """
 
 core = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-core.connect(("0.0.0.0", 3399))
+core.connect(("0.0.0.0", 2323))
 
 ue = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-ue.connect(("0.0.0.0", 3000))
+ue.connect(("0.0.0.0", 3232))
 
 print("InitUe")
 ue_data = ue.recv(1024)
