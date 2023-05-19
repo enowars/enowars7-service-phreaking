@@ -16,7 +16,7 @@ func handleConnection(c net.Conn) {
 
 	regMsg := ngap.NASRegRequestMsg{SecHeader: 0,
 		MobileId: ngap.MobileIdType{Mcc: 0, Mnc: 0, ProtecScheme: 0, HomeNetPki: 0, Msin: 0},
-		SecCap:   ngap.SecCapType{EA: 1, IA: 0},
+		SecCap:   ngap.SecCapType{EA: 0, IA: 0},
 	}
 
 	pdu, _ := ngap.EncodeMsg(ngap.NASRegRequest, &regMsg)

@@ -6,8 +6,6 @@ Service documentation
 ## Force null encryption and integrity
 
 - Category: Man in the middle attack
-- Difficulty: medium / hard
-
-![Protocol attack](./protocol_attack.png)
+- Difficulty: medium 
 
 # Exploits

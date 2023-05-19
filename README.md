@@ -14,4 +14,3 @@ An attacker must create a "fake" gNB to connect UE (running over TCP) and the co
 
 ![5G registration](registration.png)
 
-[*Source*](https://www.techplayon.com/5g-nr-sa-registration-attach-call-flow/)
