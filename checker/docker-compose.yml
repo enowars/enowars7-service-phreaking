@@ -1,8 +1,8 @@
 version: '3'
 services:
   # Give your container proper names!
-  phreaking:
+  phreaking-checker:
     build: .
     # The checker runs a HTTP interfaces, so we need to map port 3031 to the outside (port 8000).
     ports:
-      - 8000:3031
+      - 3303:3303

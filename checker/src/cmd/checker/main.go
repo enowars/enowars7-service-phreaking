@@ -21,7 +21,7 @@ func main() {
 
 	checkerHandler := handler.New(log)
 	server := &http.Server{
-		Addr:    ":2002",
+		Addr:    ":3303",
 		Handler: enochecker.NewChecker(log, checkerHandler),
 	}
 	go func() {
