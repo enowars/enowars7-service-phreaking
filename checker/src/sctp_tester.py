@@ -23,10 +23,10 @@ sk.close()
 """
 
 core = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-core.connect(("0.0.0.0", 2323))
+core.connect(("0.0.0.0", 3399))
 
 ue = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-ue.connect(("0.0.0.0", 3232))
+ue.connect(("0.0.0.0", 3000))
 
 print("InitUe")
 ue_data = ue.recv(1024)
@@ -50,6 +50,9 @@ ue.sendall(core_data)
 
 print("PDUEstReq")
 ue_data = ue.recv(1024)
+tmp = bytearray(ue_data)
+# tmp[-5] = 0x0E
+ue_data = bytes(tmp)
 print(ue_data, "\n")
 core.sendall(ue_data)
 

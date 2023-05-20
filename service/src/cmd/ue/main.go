@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net"
@@ -16,7 +17,7 @@ func handleConnection(c net.Conn) {
 
 	regMsg := ngap.NASRegRequestMsg{SecHeader: 0,
 		MobileId: ngap.MobileIdType{Mcc: 0, Mnc: 0, ProtecScheme: 0, HomeNetPki: 0, Msin: 0},
-		SecCap:   ngap.SecCapType{EA: 0, IA: 0},
+		SecCap:   ngap.SecCapType{EA: 0, IA: 1},
 	}
 
 	pdu, _ := ngap.EncodeMsg(ngap.NASRegRequest, &regMsg)
@@ -75,19 +76,23 @@ func handleNASSecurityModeCommand(c net.Conn, buf []byte) error {
 
 	pduReq := ngap.PDUSessionEstRequestMsg{PduSesId: 0, PduSesType: 2}
 
-	var pdu []byte
+	pdu, err := ngap.EncodeMsgBytes(&pduReq)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	mac := crypto.IAalg[int8(ia[c])](pdu)[:8]
 
 	if ea[c] == 1 {
-		pdu, err = ngap.EncodeEncMsg(ngap.PDUSessionEstRequest, &pduReq)
-		if err != nil {
-			fmt.Println(err)
-		}
-	} else {
-		pdu, err = ngap.EncodeMsg(ngap.PDUSessionEstRequest, &pduReq)
-		if err != nil {
-			fmt.Println(err)
-		}
+		pdu = crypto.EncryptAES(pdu)
 	}
+
+	var b bytes.Buffer
+	b.WriteByte(byte(ngap.PDUSessionEstRequest))
+	b.Write(mac)
+	b.Write(pdu)
+
+	pdu = b.Bytes()
 
 	up := ngap.UpNASTransMsg{NasPdu: pdu, RanUeNgapId: 1}
 	buf, err = ngap.EncodeMsg(ngap.UpNASTrans, &up)
@@ -106,7 +111,7 @@ func handleNASAuthRequest(c net.Conn, buf []byte) error {
 		return errors.New("cannot decode!")
 	}
 
-	res := crypto.EncryptAES(msg.Rand)
+	res := crypto.IA2(msg.Rand)
 
 	authRes := ngap.NASAuthResponseMsg{SecHeader: 0, Res: res}
 	pdu, _ := ngap.EncodeMsg(ngap.NASAuthResponse, &authRes)

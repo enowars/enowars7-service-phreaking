@@ -35,3 +35,10 @@ func EncodeEncMsg[T any](t MsgType, msgPtr *T) ([]byte, error) {
 	b.Write(tmp)
 	return b.Bytes(), err
 }
+
+func EncodeMsgBytes[T any](msgPtr *T) ([]byte, error) {
+	var b bytes.Buffer
+	e := gob.NewEncoder(&b)
+	err := e.Encode(&msgPtr)
+	return b.Bytes(), err
+}

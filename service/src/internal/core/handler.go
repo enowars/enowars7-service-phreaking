@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -10,17 +11,20 @@ import (
 )
 
 var (
-	errDecode = errors.New("cannot decode message")
-	errEncode = errors.New("cannot encode message")
-	errAuth   = errors.New("cannot authenticate UE")
+	errDecode        = errors.New("cannot decode message")
+	errEncode        = errors.New("cannot encode message")
+	errAuth          = errors.New("cannot authenticate UE")
+	errNullIntegrity = errors.New("null integrity is not allowed")
+	errIntegrity     = errors.New("integrity check failed")
+	errIntegrityImp  = errors.New("integrity not implemented")
 )
 
-var lastHandle = make(map[net.Conn]int)
-var ranUeNgapId = make(map[net.Conn]int)
-var amfUeNgapId = make(map[net.Conn]int)
+var lastHandle = make(map[net.Conn]int32)
+var ranUeNgapId = make(map[net.Conn]int32)
+var amfUeNgapId = make(map[net.Conn]int32)
 var randTokens = make(map[net.Conn][]byte)
-var ea = make(map[net.Conn]uint8)
-var ia = make(map[net.Conn]uint8)
+var ea = make(map[net.Conn]int8)
+var ia = make(map[net.Conn]int8)
 
 func HandleNGAP(c net.Conn, buf []byte) error {
 	msgType := ngap.MsgType(buf[0])
@@ -82,13 +86,32 @@ func handlePDUSessionEstRequest(c net.Conn, buf []byte) error {
 		buf = crypto.DecryptAES(buf)
 	}
 
+	mac := buf[:8]
+	buf = buf[8:]
+
+	switch {
+	case ia[c] == 0:
+		return errNullIntegrity
+	case ia[c] < 5:
+		alg, ok := crypto.IAalg[ia[c]]
+		if !ok {
+			alg = crypto.IAalg[0]
+		}
+		if !bytes.Equal(mac, alg(buf)[:8]) {
+			return errIntegrity
+		}
+	default:
+		return errIntegrityImp
+	}
+
+	fmt.Println("Integrity check successfull")
+
 	err := ngap.DecodeMsg(buf, &msg)
 	if err != nil {
-		fmt.Println("TREFF")
 		return errDecode
 	}
 
-	lastHandle[c] = int(ngap.PDUSessionEstRequest)
+	lastHandle[c] = int32(ngap.PDUSessionEstRequest)
 
 	var pduAddr []byte
 
@@ -103,19 +126,23 @@ func handlePDUSessionEstRequest(c net.Conn, buf []byte) error {
 
 	pduAcc := ngap.PDUSessionEstAcceptMsg{PduSesId: msg.PduSesId, PduAddress: pduAddr}
 
-	var pdu []byte
+	pdu, err := ngap.EncodeMsgBytes(&pduAcc)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	mac = crypto.IAalg[int8(ia[c])](pdu)[:8]
 
 	if ea[c] == 1 {
-		pdu, err = ngap.EncodeEncMsg(ngap.PDUSessionEstAccept, &pduAcc)
-		if err != nil {
-			fmt.Println(err)
-		}
-	} else {
-		pdu, err = ngap.EncodeMsg(ngap.PDUSessionEstAccept, &pduAcc)
-		if err != nil {
-			fmt.Println(err)
-		}
+		pdu = crypto.EncryptAES(pdu)
 	}
+
+	var b bytes.Buffer
+	b.WriteByte(byte(ngap.PDUSessionEstAccept))
+	b.Write(mac)
+	b.Write(pdu)
+
+	pdu = b.Bytes()
 
 	down := ngap.DownNASTransMsg{NasPdu: pdu, RanUeNgapId: 1}
 	buf, err = ngap.EncodeMsg(ngap.UpNASTrans, &down)
@@ -156,8 +183,8 @@ func handleInitUEMessage(c net.Conn, buf []byte) error {
 	if err != nil {
 		return errDecode
 	}
-	lastHandle[c] = int(ngap.InitUEMessage)
-	ranUeNgapId[c] = int(msg.RanUeNgapId)
+	lastHandle[c] = int32(ngap.InitUEMessage)
+	ranUeNgapId[c] = int32(msg.RanUeNgapId)
 
 	return handleNASPDU(c, msg.NasPdu)
 }
@@ -168,7 +195,7 @@ func handleUpNASTrans(c net.Conn, buf []byte) error {
 	if err != nil {
 		return errDecode
 	}
-	lastHandle[c] = int(ngap.UpNASTrans)
+	lastHandle[c] = int32(ngap.UpNASTrans)
 
 	return handleNASPDU(c, msg.NasPdu)
 }
@@ -179,9 +206,9 @@ func handleNASRegRequest(c net.Conn, buf []byte) error {
 	if err != nil {
 		return errDecode
 	}
-	lastHandle[c] = int(ngap.NASRegRequest)
-	ea[c] = msg.SecCap.EA
-	ia[c] = msg.SecCap.IA
+	lastHandle[c] = int32(ngap.NASRegRequest)
+	ea[c] = int8(msg.SecCap.EA)
+	ia[c] = int8(msg.SecCap.IA)
 
 	randToken := make([]byte, 32)
 	rand.Read(randToken)
@@ -213,20 +240,18 @@ func handleNASAuthResponse(c net.Conn, buf []byte) error {
 	if err != nil {
 		return errDecode
 	}
-	lastHandle[c] = int(ngap.NASAuthResponse)
+	lastHandle[c] = int32(ngap.NASAuthResponse)
 
-	dec := crypto.DecryptAES(msg.Res)
-
-	hkres := crypto.ComputeHash(dec)
-	hres := crypto.ComputeHash(randTokens[c])
+	hkres := crypto.ComputeHash(crypto.IA2(randTokens[c]))
+	hres := crypto.ComputeHash(msg.Res)
 
 	if hkres != hres {
 		return errAuth
 	}
 	fmt.Println("AUTHENTICATION SUCCESSFULL")
 
-	secModeCmd := ngap.NASSecurityModeCommandMsg{SecHeader: 1, EaAlg: ea[c],
-		IaAlg: ia[c], SecCap: ngap.SecCapType{EA: ea[c], IA: ia[c]},
+	secModeCmd := ngap.NASSecurityModeCommandMsg{SecHeader: 1, EaAlg: uint8(ea[c]),
+		IaAlg: uint8(ia[c]), SecCap: ngap.SecCapType{EA: uint8(ea[c]), IA: uint8(ia[c])},
 	}
 
 	pdu, _ := ngap.EncodeMsg(ngap.NASSecurityModeCommand, &secModeCmd)
@@ -243,7 +268,7 @@ func handleNGSetupRequest(c net.Conn, buf []byte) error {
 	if err != nil {
 		return errDecode
 	}
-	lastHandle[c] = int(ngap.NGSetupRequest)
+	lastHandle[c] = int32(ngap.NGSetupRequest)
 
 	// 0x00ff10 = MCC 001, MNC 01
 	res := ngap.NGSetupResponseMsg{AmfName: "5GO-AMF", GuamPlmn: 0x00ff10,
