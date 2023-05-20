@@ -1,17 +1,15 @@
-FROM python:3.9
+FROM golang:1.16 AS builder
+WORKDIR /src
 
-# Create user
-RUN useradd -ms /bin/bash -u 1000 checker
+COPY go.mod ./
+COPY go.sum ./
+RUN go mod download
 
-USER checker
-WORKDIR /checker
+COPY . .
+RUN CGO_ENABLED=0 go build -ldflags="-extldflags '-static' -s -w" ./cmd/checker
 
-# Install all required dependencies for the checker.
-COPY ./src/requirements.txt /checker/requirements.txt
-RUN pip3 install -r requirements.txt
-
-# Copy all files into the container.
-COPY ./src/ /checker/
-
-
-ENTRYPOINT [ "/home/checker/.local/bin/gunicorn", "-c", "gunicorn.conf.py", "checker:app" ]
+FROM scratch
+WORKDIR /app
+COPY --from=builder /src/checker .
+EXPOSE 2002
+CMD ["./checker"]
