@@ -1,5 +1,6 @@
 import socket
-import sctp
+
+# import sctp
 
 
 # sk.send(b"\x01")

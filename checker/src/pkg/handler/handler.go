@@ -3,9 +3,15 @@ package handler
 import (
 	"context"
 	"errors"
+	"log"
+
+	"checker/pkg/pb"
 
 	"github.com/enowars/enochecker-go"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 var serviceInfo = &enochecker.InfoMessage{
@@ -57,6 +63,22 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 }
 
 func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) (*enochecker.HandlerInfo, error) {
+	var conn *grpc.ClientConn
+	conn, err := grpc.Dial(":9000", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("did not connect: %s", err)
+	}
+	defer conn.Close()
+
+	c := pb.NewLocationClient(conn)
+
+	md := metadata.Pairs("auth", "password")
+	ctx_grpc := metadata.NewOutgoingContext(context.Background(), md)
+	response, err := c.UpdateLocation(ctx_grpc, &pb.Loc{Position: message.Flag})
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("Response from server: %s", response)
 	return nil, nil
 }
 

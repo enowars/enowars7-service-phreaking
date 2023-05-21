@@ -134,6 +134,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("grpc server failed to listen: %v", err)
 	}
+	defer lis.Close()
 
 	s := pb.Server{}
 
