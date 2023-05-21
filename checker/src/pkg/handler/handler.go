@@ -34,6 +34,26 @@ func New(log *logrus.Logger) *Handler {
 	}
 }
 
+func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) (*enochecker.HandlerInfo, error) {
+	var conn *grpc.ClientConn
+	conn, err := grpc.Dial(":9000", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("did not connect: %s", err)
+	}
+	defer conn.Close()
+
+	c := pb.NewLocationClient(conn)
+
+	md := metadata.Pairs("auth", "password")
+	ctx_grpc := metadata.NewOutgoingContext(context.Background(), md)
+	response, err := c.UpdateLocation(ctx_grpc, &pb.Loc{Position: message.Flag})
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("Response from server: %s", response)
+	return nil, nil
+}
+
 func (h *Handler) getFlagPdu(ctx context.Context, message *enochecker.TaskMessage) error {
 	/*
 		err = h.sendMessageAndCheckResponse(ctx, sessionIO, joinCmd, message.Flag)
@@ -59,26 +79,6 @@ func (h *Handler) GetServiceInfo() *enochecker.InfoMessage {
 }
 
 func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) (*enochecker.HandlerInfo, error) {
-	return nil, nil
-}
-
-func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) (*enochecker.HandlerInfo, error) {
-	var conn *grpc.ClientConn
-	conn, err := grpc.Dial(":9000", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Fatalf("did not connect: %s", err)
-	}
-	defer conn.Close()
-
-	c := pb.NewLocationClient(conn)
-
-	md := metadata.Pairs("auth", "password")
-	ctx_grpc := metadata.NewOutgoingContext(context.Background(), md)
-	response, err := c.UpdateLocation(ctx_grpc, &pb.Loc{Position: message.Flag})
-	if err != nil {
-		return nil, err
-	}
-	log.Printf("Response from server: %s", response)
 	return nil, nil
 }
 

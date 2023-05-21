@@ -49,6 +49,11 @@ core_data = core.recv(1024)
 print(core_data, "\n")
 ue.sendall(core_data)
 
+print("LocationUpdate")
+ue_data = ue.recv(1024)
+print(ue_data, "\n")
+core.sendall(ue_data)
+
 print("PDUEstReq")
 ue_data = ue.recv(1024)
 tmp = bytearray(ue_data)

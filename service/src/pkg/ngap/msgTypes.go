@@ -26,6 +26,7 @@ const (
 	PDUSessionEstRequest
 	PDUSessionEstAccept
 	PDUSessionResourceReleaseCommand
+	LocationUpdate
 )
 
 type NGSetupRequestMsg struct {
@@ -125,6 +126,10 @@ type PDUSessionEstAcceptMsg struct {
 	// SSC
 	// QoS
 	// AMBR
+}
+
+type LocationUpdateMsg struct {
+	Location string
 }
 
 /*

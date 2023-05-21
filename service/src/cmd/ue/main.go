@@ -1,14 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"phreaking/internal/core/crypto"
 	"phreaking/internal/ue/pb"
 	"phreaking/pkg/ngap"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -79,9 +82,28 @@ func handleNASSecurityModeCommand(c net.Conn, buf []byte) error {
 	ea[c] = msg.EaAlg
 	ia[c] = msg.IaAlg
 
-	pduReq := ngap.PDUSessionEstRequestMsg{PduSesId: 0, PduSesType: 2}
+	// LocationUpdate
 
-	pdu, err := ngap.EncodeMsgBytes(&pduReq)
+	location := ""
+
+	readFile, err := os.Open("/tmp/location.data")
+
+	if err != nil {
+		fmt.Println(err)
+	}
+	fileScanner := bufio.NewScanner(readFile)
+
+	fileScanner.Split(bufio.ScanLines)
+
+	for fileScanner.Scan() {
+		location = fileScanner.Text()
+	}
+
+	readFile.Close()
+
+	pduLoc := ngap.LocationUpdateMsg{Location: location}
+
+	pdu, err := ngap.EncodeMsgBytes(&pduLoc)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -93,13 +115,46 @@ func handleNASSecurityModeCommand(c net.Conn, buf []byte) error {
 	}
 
 	var b bytes.Buffer
-	b.WriteByte(byte(ngap.PDUSessionEstRequest))
+	b.WriteByte(byte(ngap.LocationUpdate))
 	b.Write(mac)
 	b.Write(pdu)
 
 	pdu = b.Bytes()
 
 	up := ngap.UpNASTransMsg{NasPdu: pdu, RanUeNgapId: 1}
+	buf, err = ngap.EncodeMsg(ngap.UpNASTrans, &up)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	c.Write(buf)
+
+	b.Reset()
+
+	time.Sleep(500 * time.Millisecond)
+
+	// PDUSessionEstRequestMsg
+
+	pduReq := ngap.PDUSessionEstRequestMsg{PduSesId: 0, PduSesType: 2}
+
+	pdu, err = ngap.EncodeMsgBytes(&pduReq)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	mac = crypto.IAalg[int8(ia[c])](pdu)[:8]
+
+	if ea[c] == 1 {
+		pdu = crypto.EncryptAES(pdu)
+	}
+
+	b.WriteByte(byte(ngap.PDUSessionEstRequest))
+	b.Write(mac)
+	b.Write(pdu)
+
+	pdu = b.Bytes()
+
+	up = ngap.UpNASTransMsg{NasPdu: pdu, RanUeNgapId: 1}
 	buf, err = ngap.EncodeMsg(ngap.UpNASTrans, &up)
 	if err != nil {
 		fmt.Println(err)
@@ -143,9 +198,11 @@ func main() {
 	pb.RegisterLocationServer(grpcServer, &s)
 	reflection.Register(grpcServer)
 
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %s", err)
-	}
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalf("failed to serve: %s", err)
+		}
+	}()
 
 	l, err := net.Listen("tcp4", ":3000")
 	if err != nil {
