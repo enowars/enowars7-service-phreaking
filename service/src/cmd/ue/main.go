@@ -4,9 +4,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"phreaking/internal/core/crypto"
+	"phreaking/internal/ue/pb"
 	"phreaking/pkg/ngap"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 var ea = make(map[net.Conn]uint8)
@@ -125,6 +130,22 @@ func handleNASAuthRequest(c net.Conn, buf []byte) error {
 }
 
 func main() {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9000))
+	if err != nil {
+		log.Fatalf("grpc server failed to listen: %v", err)
+	}
+
+	s := pb.Server{}
+
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(pb.AuthInterceptor))
+
+	pb.RegisterLocationServer(grpcServer, &s)
+	reflection.Register(grpcServer)
+
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %s", err)
+	}
+
 	l, err := net.Listen("tcp4", ":3000")
 	if err != nil {
 		fmt.Println(err)
