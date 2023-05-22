@@ -27,6 +27,8 @@ const (
 	PDUSessionEstAccept
 	PDUSessionResourceReleaseCommand
 	LocationUpdate
+	LocationReportRequest
+	LocationReportResponse
 )
 
 type NGSetupRequestMsg struct {
@@ -119,9 +121,7 @@ type PDUSessionEstRequestMsg struct {
 }
 
 type PDUSessionEstAcceptMsg struct {
-	PduSesId uint8
-	// 0 = IPv4, 1 = IPv6, 2 = Flag ;)
-	PduSesType uint8
+	PduSesId   uint8
 	PduAddress []byte
 	// SSC
 	// QoS
@@ -132,8 +132,13 @@ type LocationUpdateMsg struct {
 	Location string
 }
 
-/*
-func (msg NGSetupRequestMsg) isCool() bool {
-	return (msg.Tac == 69)
+type LocationReportRequestMsg struct {
+	AmfUeNgapId uint32
+	RanUeNgapId uint32
 }
-*/
+
+type LocationReportResponseMsg struct {
+	AmfUeNgapId uint32
+	RanUeNgapId uint32
+	Locations   []byte
+}

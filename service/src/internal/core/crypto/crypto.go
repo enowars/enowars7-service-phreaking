@@ -5,14 +5,15 @@ import (
 	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha1"
 	"crypto/sha256"
+	"crypto/sha3"
 	"crypto/sha512"
 	"fmt"
 	"io"
 	"log"
 
 	"github.com/free5gc/nas/security"
+	"golang.org/x/crypto/blowfish"
 )
 
 var key = []byte("passphrasewhichneedstobe32bytes!")
@@ -99,14 +100,13 @@ func IA2(msg []byte) (mac []byte) {
 }
 
 func IA3(msg []byte) (mac []byte) {
-	hash := hmac.New(sha1.New, []byte(key))
+	hash := hmac.New(sha3.New, []byte(key))
 	hash.Write(msg)
 	return hash.Sum(nil)
 }
 
 func IA4(msg []byte) (mac []byte) {
-	hash := hmac.New(sha1.New, []byte(key))
-	//hash := hmac.New(BLAKE2s_256.New, []byte(key))
+	hash := hmac.New(blowfish.New, []byte(key))
 	hash.Write(msg)
 	return hash.Sum(nil)
 }

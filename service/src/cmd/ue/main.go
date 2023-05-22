@@ -20,6 +20,13 @@ import (
 var ea = make(map[net.Conn]uint8)
 var ia = make(map[net.Conn]uint8)
 
+var (
+	errDecode        = errors.New("cannot decode message")
+	errIntegrity     = errors.New("integrity check failed")
+	errNullIntegrity = errors.New("null integrity is not allowed")
+	errIntegrityImp  = errors.New("integrity not implemented")
+)
+
 func handleConnection(c net.Conn) {
 	fmt.Printf("Serving %s\n", c.RemoteAddr().String())
 
@@ -64,12 +71,61 @@ func handleConnection(c net.Conn) {
 				if err != nil {
 					fmt.Printf("Error: %s", err)
 				}
+			case ngap.PDUSessionEstAccept:
+				err := handlePDUSessionEstRequest(c, msg.NasPdu[1:])
+				if err != nil {
+					fmt.Printf("Error: %s", err)
+				}
 			}
 		default:
 			fmt.Println("invalid message type for UE")
 		}
 	}
 	c.Close()
+}
+
+func handlePDUSessionEstRequest(c net.Conn, buf []byte) error {
+	var msg ngap.PDUSessionEstAcceptMsg
+
+	if ea[c] == 1 {
+		buf = crypto.DecryptAES(buf)
+	}
+
+	mac := buf[:8]
+	buf = buf[8:]
+
+	switch {
+	case ia[c] == 0:
+		return errNullIntegrity
+	case ia[c] < 5:
+		alg, ok := crypto.IAalg[int8(ia[c])]
+		if !ok {
+			alg = crypto.IAalg[0]
+		}
+		if !bytes.Equal(mac, alg(buf)[:8]) {
+			return errIntegrity
+		}
+	default:
+		return errIntegrityImp
+	}
+
+	err := ngap.DecodeMsg(buf, &msg)
+	if err != nil {
+		return errDecode
+	}
+
+	return nil
+
+	/*
+		locreq := ngap.LocationReportRequestMsg{AmfUeNgapId: 1, RanUeNgapId: 1}
+		buf, err = ngap.EncodeMsg(ngap.LocationReportRequest, &locreq)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		_, err = c.Write(buf)
+		return err
+	*/
 }
 
 func handleNASSecurityModeCommand(c net.Conn, buf []byte) error {

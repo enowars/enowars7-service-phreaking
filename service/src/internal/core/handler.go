@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"net"
@@ -14,6 +15,7 @@ var (
 	errDecode        = errors.New("cannot decode message")
 	errEncode        = errors.New("cannot encode message")
 	errAuth          = errors.New("cannot authenticate UE")
+	errNotAuth       = errors.New("not authenticated")
 	errNullIntegrity = errors.New("null integrity is not allowed")
 	errIntegrity     = errors.New("integrity check failed")
 	errIntegrityImp  = errors.New("integrity not implemented")
@@ -25,6 +27,8 @@ var amfUeNgapId = make(map[net.Conn]int32)
 var randTokens = make(map[net.Conn][]byte)
 var ea = make(map[net.Conn]int8)
 var ia = make(map[net.Conn]int8)
+var authenticated = make(map[net.Conn]bool)
+var locations = make(map[net.Conn][]string)
 
 func HandleNGAP(c net.Conn, buf []byte) error {
 	msgType := ngap.MsgType(buf[0])
@@ -44,6 +48,12 @@ func HandleNGAP(c net.Conn, buf []byte) error {
 
 	case ngap.UpNASTrans:
 		err := handleUpNASTrans(c, buf[1:])
+		if err != nil {
+			return err
+		}
+
+	case ngap.LocationReportRequest:
+		err := handleLocationReportRequest(c, buf[1:])
 		if err != nil {
 			return err
 		}
@@ -73,9 +83,89 @@ func handleNASPDU(c net.Conn, buf []byte) error {
 		if err != nil {
 			return err
 		}
+	case ngap.LocationUpdate:
+		err := handleLocationUpdate(c, buf[1:])
+		if err != nil {
+			return err
+		}
 	default:
 		return errors.New("invalid message type for NAS-PDU")
 	}
+	return nil
+}
+
+func handleLocationReportRequest(c net.Conn, buf []byte) error {
+	var msg ngap.LocationReportRequestMsg
+
+	fmt.Println(authenticated[c])
+	if !authenticated[c] {
+		return errNotAuth
+	}
+
+	err := ngap.DecodeMsg(buf, &msg)
+	if err != nil {
+		return errDecode
+	}
+
+	locs := locations[c]
+
+	var locB bytes.Buffer
+	enc := gob.NewEncoder(&locB)
+	enc.Encode(locs)
+
+	locBytes := locB.Bytes()
+
+	// locBytes = crypto.EncryptAES(locBytes)
+
+	locRes := ngap.LocationReportResponseMsg{AmfUeNgapId: msg.AmfUeNgapId, RanUeNgapId: msg.RanUeNgapId, Locations: locBytes}
+
+	locResBytes, err := ngap.EncodeMsgBytes(&locRes)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	return SendMsg(c, locResBytes)
+}
+
+func handleLocationUpdate(c net.Conn, buf []byte) error {
+	var msg ngap.LocationUpdateMsg
+
+	if !authenticated[c] {
+		return errNotAuth
+	}
+
+	if ea[c] == 1 {
+		buf = crypto.DecryptAES(buf)
+	}
+
+	mac := buf[:8]
+	buf = buf[8:]
+
+	switch {
+	case ia[c] == 0:
+		return errNullIntegrity
+	case ia[c] < 5:
+		alg, ok := crypto.IAalg[ia[c]]
+		if !ok {
+			alg = crypto.IAalg[0]
+		}
+		if !bytes.Equal(mac, alg(buf)[:8]) {
+			return errIntegrity
+		}
+	default:
+		return errIntegrityImp
+	}
+
+	err := ngap.DecodeMsg(buf, &msg)
+	if err != nil {
+		return errDecode
+	}
+
+	fmt.Println(locations[c])
+	fmt.Println(msg.Location)
+
+	locations[c] = append(locations[c], msg.Location)
+	fmt.Println(locations[c])
 	return nil
 }
 
@@ -118,8 +208,10 @@ func handlePDUSessionEstRequest(c net.Conn, buf []byte) error {
 	switch msg.PduSesType {
 	case 1:
 		pduAddr = []byte{0xff, 0x00, 0x00, 0xff}
-	case 2:
-		pduAddr = []byte("ENO{GOGOGO5G}")
+	/*
+		case 2:
+			pduAddr = []byte("ENO{GOGOGO5G}")
+	*/
 	default:
 		pduAddr = []byte{10, 0, 0, 1}
 	}
@@ -145,7 +237,7 @@ func handlePDUSessionEstRequest(c net.Conn, buf []byte) error {
 	pdu = b.Bytes()
 
 	down := ngap.DownNASTransMsg{NasPdu: pdu, RanUeNgapId: 1}
-	buf, err = ngap.EncodeMsg(ngap.UpNASTrans, &down)
+	buf, err = ngap.EncodeMsg(ngap.DownNASTrans, &down)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -249,6 +341,7 @@ func handleNASAuthResponse(c net.Conn, buf []byte) error {
 		return errAuth
 	}
 	fmt.Println("AUTHENTICATION SUCCESSFULL")
+	authenticated[c] = true
 
 	secModeCmd := ngap.NASSecurityModeCommandMsg{SecHeader: 1, EaAlg: uint8(ea[c]),
 		IaAlg: uint8(ia[c]), SecCap: ngap.SecCapType{EA: uint8(ea[c]), IA: uint8(ia[c])},
@@ -269,6 +362,7 @@ func handleNGSetupRequest(c net.Conn, buf []byte) error {
 		return errDecode
 	}
 	lastHandle[c] = int32(ngap.NGSetupRequest)
+	authenticated[c] = false
 
 	// 0x00ff10 = MCC 001, MNC 01
 	res := ngap.NGSetupResponseMsg{AmfName: "5GO-AMF", GuamPlmn: 0x00ff10,
