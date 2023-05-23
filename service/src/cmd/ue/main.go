@@ -168,8 +168,6 @@ func handleNASSecurityModeCommand(c net.Conn, buf []byte) error {
 
 	c.Write(pdu)
 
-	fmt.Println(pdu)
-
 	b.Reset()
 
 	time.Sleep(500 * time.Millisecond)
@@ -216,7 +214,7 @@ func handleNASAuthRequest(c net.Conn, buf []byte) error {
 }
 
 func main() {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9000))
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9933))
 	if err != nil {
 		log.Fatalf("grpc server failed to listen: %v", err)
 	}

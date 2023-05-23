@@ -36,7 +36,6 @@ func handleConnection(c net.Conn) {
 			fmt.Printf("Error reading: %#v\n", err)
 			return
 		}
-		fmt.Println(buf)
 		core.HandleNGAP(c, buf)
 	}
 	c.Close()
