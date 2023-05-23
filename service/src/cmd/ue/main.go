@@ -32,15 +32,12 @@ func handleConnection(c net.Conn) {
 
 	regMsg := ngap.NASRegRequestMsg{SecHeader: 0,
 		MobileId: ngap.MobileIdType{Mcc: 0, Mnc: 0, ProtecScheme: 0, HomeNetPki: 0, Msin: 0},
-		SecCap:   ngap.SecCapType{EA: 0, IA: 1},
+		SecCap:   ngap.SecCapType{EA: 1, IA: 1},
 	}
 
 	pdu, _ := ngap.EncodeMsg(ngap.NASRegRequest, &regMsg)
 
-	// TODO: remove gNB encapsulation
-	initUeMsg := ngap.InitUEMessageMsg{NasPdu: pdu, RanUeNgapId: 1}
-	buf, _ := ngap.EncodeMsg(ngap.InitUEMessage, &initUeMsg)
-	c.Write(buf)
+	c.Write(pdu)
 
 	for {
 		buf := make([]byte, 1024)
@@ -54,28 +51,20 @@ func handleConnection(c net.Conn) {
 		msgType := ngap.MsgType(buf[0])
 
 		switch msgType {
-		case ngap.DownNASTrans:
-
-			var msg ngap.DownNASTransMsg
-			ngap.DecodeMsg(buf[1:], &msg)
-			pduType := ngap.MsgType(msg.NasPdu[0])
-
-			switch pduType {
-			case ngap.NASAuthRequest:
-				err := handleNASAuthRequest(c, msg.NasPdu[1:])
-				if err != nil {
-					fmt.Printf("Error: %s", err)
-				}
-			case ngap.NASSecurityModeCommand:
-				err := handleNASSecurityModeCommand(c, msg.NasPdu[1:])
-				if err != nil {
-					fmt.Printf("Error: %s", err)
-				}
-			case ngap.PDUSessionEstAccept:
-				err := handlePDUSessionEstRequest(c, msg.NasPdu[1:])
-				if err != nil {
-					fmt.Printf("Error: %s", err)
-				}
+		case ngap.NASAuthRequest:
+			err := handleNASAuthRequest(c, buf[1:])
+			if err != nil {
+				fmt.Printf("Error: %s", err)
+			}
+		case ngap.NASSecurityModeCommand:
+			err := handleNASSecurityModeCommand(c, buf[1:])
+			if err != nil {
+				fmt.Printf("Error: %s", err)
+			}
+		case ngap.PDUSessionEstAccept:
+			err := handlePDUSessionEstRequest(c, buf[1:])
+			if err != nil {
+				fmt.Printf("Error: %s", err)
 			}
 		default:
 			fmt.Println("invalid message type for UE")
@@ -177,13 +166,9 @@ func handleNASSecurityModeCommand(c net.Conn, buf []byte) error {
 
 	pdu = b.Bytes()
 
-	up := ngap.UpNASTransMsg{NasPdu: pdu, RanUeNgapId: 1}
-	buf, err = ngap.EncodeMsg(ngap.UpNASTrans, &up)
-	if err != nil {
-		fmt.Println(err)
-	}
+	c.Write(pdu)
 
-	c.Write(buf)
+	fmt.Println(pdu)
 
 	b.Reset()
 
@@ -210,13 +195,7 @@ func handleNASSecurityModeCommand(c net.Conn, buf []byte) error {
 
 	pdu = b.Bytes()
 
-	up = ngap.UpNASTransMsg{NasPdu: pdu, RanUeNgapId: 1}
-	buf, err = ngap.EncodeMsg(ngap.UpNASTrans, &up)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	c.Write(buf)
+	c.Write(pdu)
 	return nil
 }
 
@@ -232,11 +211,7 @@ func handleNASAuthRequest(c net.Conn, buf []byte) error {
 	authRes := ngap.NASAuthResponseMsg{SecHeader: 0, Res: res}
 	pdu, _ := ngap.EncodeMsg(ngap.NASAuthResponse, &authRes)
 
-	// TODO: remove gNB encapsulation
-	up := ngap.UpNASTransMsg{NasPdu: pdu, RanUeNgapId: 1}
-	buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
-
-	c.Write(buf)
+	c.Write(pdu)
 	return nil
 }
 

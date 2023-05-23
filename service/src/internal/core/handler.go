@@ -3,7 +3,6 @@ package core
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"net"
@@ -109,15 +108,7 @@ func handleLocationReportRequest(c net.Conn, buf []byte) error {
 
 	locs := locations[c]
 
-	var locB bytes.Buffer
-	enc := gob.NewEncoder(&locB)
-	enc.Encode(locs)
-
-	locBytes := locB.Bytes()
-
-	// locBytes = crypto.EncryptAES(locBytes)
-
-	locRes := ngap.LocationReportResponseMsg{AmfUeNgapId: msg.AmfUeNgapId, RanUeNgapId: msg.RanUeNgapId, Locations: locBytes}
+	locRes := ngap.LocationReportResponseMsg{AmfUeNgapId: msg.AmfUeNgapId, RanUeNgapId: msg.RanUeNgapId, Locations: locs}
 
 	locResBytes, err := ngap.EncodeMsgBytes(&locRes)
 	if err != nil {
