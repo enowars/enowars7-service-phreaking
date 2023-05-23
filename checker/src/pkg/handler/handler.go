@@ -365,12 +365,20 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 
 }
 
+var putnoisecalled []string
+
 func (h *Handler) PutNoise(ctx context.Context, message *enochecker.TaskMessage) error {
+	putnoisecalled = append(putnoisecalled, message.TaskChainId)
 	return nil
 }
 
 func (h *Handler) GetNoise(ctx context.Context, message *enochecker.TaskMessage) error {
-	return nil
+	for _, i := range putnoisecalled {
+		if i == message.TaskChainId {
+			return nil
+		}
+	}
+	return enochecker.NewMumbleError(errors.New("put flag was not called beforehand"))
 }
 
 func (h *Handler) Havoc(ctx context.Context, message *enochecker.TaskMessage) error {
