@@ -8,11 +8,12 @@ services:
       - ./data/:/data:rw
     # Define the port mapping (external:internal port)
     ports:
-      - "9090:3399"
+      - "3399:3399"
     entrypoint: /core-entrypoint.sh
   phreaking-ue:
     build: .
     # Define the port mapping (external:internal port)
     ports:
-      - "6060:3000"
+      - "6060:6060"
+      - "9933:9933"
     entrypoint: /ue-entrypoint.sh

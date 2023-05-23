@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"errors"
-	"log"
 	"net"
 
 	"checker/pkg/crypto"
@@ -39,9 +38,9 @@ func New(log *logrus.Logger) *Handler {
 
 func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) (*enochecker.HandlerInfo, error) {
 	var conn *grpc.ClientConn
-	conn, err := grpc.Dial(":9933", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(message.Address+":9933", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("did not connect: %s", err)
+		return nil, err
 	}
 	defer conn.Close()
 
@@ -57,7 +56,7 @@ func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) 
 }
 
 func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskMessage) error {
-	coretcpAddr, err := net.ResolveTCPAddr("tcp", "localhost:3399")
+	coretcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":3399")
 	if err != nil {
 		return err
 	}
@@ -67,7 +66,7 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 		return err
 	}
 
-	uetcpAddr, err := net.ResolveTCPAddr("tcp", "localhost:3000")
+	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":6060")
 	if err != nil {
 		return err
 	}
@@ -250,7 +249,7 @@ func (h *Handler) GetServiceInfo() *enochecker.InfoMessage {
 }
 
 func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) (*enochecker.HandlerInfo, error) {
-	coretcpAddr, err := net.ResolveTCPAddr("tcp", "localhost:3399")
+	coretcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":3399")
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +259,7 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 		return nil, err
 	}
 
-	uetcpAddr, err := net.ResolveTCPAddr("tcp", "localhost:3000")
+	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":6060")
 	if err != nil {
 		return nil, err
 	}

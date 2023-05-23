@@ -233,7 +233,7 @@ func main() {
 		}
 	}()
 
-	l, err := net.Listen("tcp4", ":3000")
+	l, err := net.Listen("tcp4", ":6060")
 	if err != nil {
 		fmt.Println(err)
 		return
