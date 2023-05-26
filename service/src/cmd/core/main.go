@@ -43,9 +43,6 @@ func handleConnection(c net.Conn) {
 
 /*
 func main() {
-	fmt.Println("Hello world!")
-	crypto.PrintCrypto()
-
 	var ip = flag.String("ip", "0.0.0.0", "")
 	var port = flag.Int("port", 3399, "")
 	var bufsize = flag.Int("bufsize", 256, "")

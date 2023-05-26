@@ -11,29 +11,11 @@ import (
 	"io"
 	"log"
 
-	"github.com/free5gc/nas/security"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/sha3"
 )
 
 var key = []byte("passphrasewhichneedstobe32bytes!")
-
-// NIA1(ik [16]byte, countI uint32, bearer byte, direction uint32, msg []byte, length uint64)
-// func genMac(m []byte, stream []uint32, blength int)
-
-func NIA4(ik [16]byte, count uint32, bearer byte, direction uint32, msg []byte, length uint64) (mac []byte, err error) {
-	h := sha256.New()
-	h.Write(msg)
-	bs := h.Sum(nil)
-	return bs[0:4], nil
-}
-
-func PrintCrypto() {
-	var ik [16]byte
-	fmt.Println("Hello from crypto!")
-	fmt.Println(security.NIA1(ik, 1, byte(0), 1, []byte("msg"), 3))
-	fmt.Println(NIA4(ik, 1, byte(0), 1, []byte("msg"), 3))
-}
 
 func ComputeHash(input []byte) (hash string) {
 	h := sha256.New()
@@ -112,34 +94,3 @@ func IA4(msg []byte) (mac []byte) {
 }
 
 var IAalg = map[int8]func([]byte) []byte{0: IA0, 1: IA1, 2: IA2, 3: IA3, 4: IA4}
-
-/*
-func DecryptAES(ct []byte) (res []byte) {
-	c, err := aes.NewCipher(key)
-	if err != nil {
-		panic(err)
-	}
-
-	pt := make([]byte, len(ct))
-	c.Decrypt(pt, ct)
-
-	//	s := string(pt[:])
-	//	fmt.Println("DECRYPTED:", s)
-
-	return pt
-}
-
-func EncryptAES(input []byte) (res []byte) {
-	c, err := aes.NewCipher(key)
-	if err != nil {
-		panic(err)
-	}
-	// allocate space for ciphered data
-	out := make([]byte, len(input))
-
-	// encrypt
-	c.Encrypt(out, input)
-	return out
-
-}
-*/
