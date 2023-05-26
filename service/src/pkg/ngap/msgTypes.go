@@ -26,6 +26,7 @@ const (
 	PDUSessionEstRequest
 	PDUSessionEstAccept
 	PDUSessionResourceReleaseCommand
+	// Location
 	LocationUpdate
 	LocationReportRequest
 	LocationReportResponse
@@ -107,15 +108,13 @@ type NASAuthResponseMsg struct {
 
 type NASSecurityModeCommandMsg struct {
 	SecHeader uint8
-	// TODO: encode more efficently
-	EaAlg  uint8
-	IaAlg  uint8
-	SecCap SecCapType
+	EaAlg     uint8
+	IaAlg     uint8
+	SecCap    SecCapType
 }
 
 type PDUSessionEstRequestMsg struct {
-	PduSesId uint8
-	// 0 = IPv4, 1 = IPv6, 2 = Flag ;)
+	PduSesId   uint8
 	PduSesType uint8
 	// add integrity protetion maximum data rate
 }
