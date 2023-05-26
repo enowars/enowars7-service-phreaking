@@ -138,7 +138,7 @@ func handleLocationUpdate(c net.Conn, buf []byte) error {
 	case ia[c] < 5:
 		alg, ok := crypto.IAalg[ia[c]]
 		if !ok {
-			alg = crypto.IAalg[0]
+			return errIntegrityImp
 		}
 		if !bytes.Equal(mac, alg(buf)[:8]) {
 			return errIntegrity
@@ -176,7 +176,7 @@ func handlePDUSessionEstRequest(c net.Conn, buf []byte) error {
 	case ia[c] < 5:
 		alg, ok := crypto.IAalg[ia[c]]
 		if !ok {
-			alg = crypto.IAalg[0]
+			return errIntegrityImp
 		}
 		if !bytes.Equal(mac, alg(buf)[:8]) {
 			return errIntegrity

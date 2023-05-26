@@ -89,7 +89,7 @@ func handlePDUSessionEstRequest(c net.Conn, buf []byte) error {
 	case ia[c] < 5:
 		alg, ok := crypto.IAalg[int8(ia[c])]
 		if !ok {
-			alg = crypto.IAalg[0]
+			return errIntegrityImp
 		}
 		if !bytes.Equal(mac, alg(buf)[:8]) {
 			return errIntegrity
