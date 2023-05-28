@@ -10,7 +10,8 @@ The checker is simulating a gNodeB radio base station, and connects to both serv
 
 An attacker must create a "fake" gNB to connect UE (running over TCP) and the core (running over SCTP) with the NGAP protocol.
 
+The gRPC server on the UE service is simulating OS location API. It is used for the putflag to store a location.
+
 ### 5G registration call flow (NGAP protocol)
 
 ![5G registration](registration.png)
-
