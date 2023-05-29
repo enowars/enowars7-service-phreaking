@@ -13,14 +13,16 @@ COPY ue-entrypoint.sh /
 RUN chmod +x /core-entrypoint.sh
 RUN chmod +x /ue-entrypoint.sh
 
-# Copy our service
-COPY src/ /service/
+COPY src/go.mod /service/
+COPY src/go.sum /service/
 
 # Change the working directory.
 WORKDIR /service/
 
 RUN go mod download
 RUN go mod verify
+
+COPY src/ /service/
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /service/core cmd/core/main.go
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /service/ue cmd/ue/main.go
