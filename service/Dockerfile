@@ -1,34 +1,23 @@
 FROM golang:1.20-bullseye as base
-
-# Create a seperate user and chown new directories if necessary
-RUN addgroup --system service
-RUN adduser --system --ingroup service --uid 1000 service
-
-# Create our mapped data volume endpoint
-RUN mkdir /data/
-
-# Copy our entrypoint.sh and make it executable
-COPY core-entrypoint.sh /
-COPY ue-entrypoint.sh /
-RUN chmod +x /core-entrypoint.sh
-RUN chmod +x /ue-entrypoint.sh
-
-COPY src/go.mod /service/
-COPY src/go.sum /service/
-
-# Change the working directory.
-WORKDIR /service/
-
+WORKDIR /build/
+COPY src/go.mod .
+COPY src/go.sum .
 RUN go mod download
 RUN go mod verify
 
-COPY src/ /service/
+# Copy our service
+COPY src/ .
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /service/core cmd/core/main.go
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /service/ue cmd/ue/main.go
+FROM base AS build-core
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /build/core cmd/core/main.go
 
-# Expose the service's port
-EXPOSE 3399
+FROM base AS build-ue
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /build/ue cmd/ue/main.go
 
-# Run the service
-# ENTRYPOINT ["/entrypoint.sh"]
+FROM scratch AS core
+COPY --from=build-core /build/core /bin/
+ENTRYPOINT [ "/bin/core" ]
+
+FROM scratch AS ue
+COPY --from=build-ue /build/ue /bin/
+ENTRYPOINT [ "/bin/ue" ]
