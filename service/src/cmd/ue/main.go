@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -11,14 +12,12 @@ import (
 	"phreaking/internal/core/crypto"
 	"phreaking/internal/ue/pb"
 	"phreaking/pkg/ngap"
+	"phreaking/pkg/state"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
-
-var ea = make(map[net.Conn]uint8)
-var ia = make(map[net.Conn]uint8)
 
 var (
 	errDecode        = errors.New("cannot decode message")
@@ -27,17 +26,11 @@ var (
 	errIntegrityImp  = errors.New("integrity not implemented")
 )
 
-func handleConnection(c net.Conn) {
-	fmt.Printf("Serving %s\n", c.RemoteAddr().String())
-
-	regMsg := ngap.NASRegRequestMsg{SecHeader: 0,
-		MobileId: ngap.MobileIdType{Mcc: 0, Mnc: 0, ProtecScheme: 0, HomeNetPki: 0, Msin: 0},
-		SecCap:   ngap.SecCapType{EA: 1, IA: 1},
+func handleConnection(c state.Connection) {
+	err := sendRegistrationRequest(c)
+	if err != nil {
+		fmt.Printf("Error: %s", err)
 	}
-
-	pdu, _ := ngap.EncodeMsg(ngap.NASRegRequest, &regMsg)
-
-	c.Write(pdu)
 
 	for {
 		buf := make([]byte, 1024)
@@ -48,20 +41,22 @@ func handleConnection(c net.Conn) {
 			fmt.Printf("Error reading: %#v\n", err)
 			return
 		}
-		msgType := ngap.MsgType(buf[0])
 
-		switch msgType {
-		case ngap.NASAuthRequest:
+		msgType := ngap.MsgType(buf[0])
+		currState := c.Ctx.Value(state.StateKey).(state.State)
+
+		switch {
+		case msgType == ngap.NASAuthRequest && currState == state.RegReqDone:
 			err := handleNASAuthRequest(c, buf[1:])
 			if err != nil {
 				fmt.Printf("Error: %s", err)
 			}
-		case ngap.NASSecurityModeCommand:
+		case msgType == ngap.NASSecurityModeCommand:
 			err := handleNASSecurityModeCommand(c, buf[1:])
 			if err != nil {
 				fmt.Printf("Error: %s", err)
 			}
-		case ngap.PDUSessionEstAccept:
+		case msgType == ngap.PDUSessionEstAccept:
 			err := handlePDUSessionEstRequest(c, buf[1:])
 			if err != nil {
 				fmt.Printf("Error: %s", err)
@@ -73,10 +68,29 @@ func handleConnection(c net.Conn) {
 	c.Close()
 }
 
-func handlePDUSessionEstRequest(c net.Conn, buf []byte) error {
+func sendRegistrationRequest(c state.Connection) error {
+	fmt.Printf("Serving %s\n", c.RemoteAddr().String())
+
+	c.Ctx = context.WithValue(c.Ctx, state.StateKey, state.Init)
+
+	regMsg := ngap.NASRegRequestMsg{SecHeader: 0,
+		MobileId: ngap.MobileIdType{Mcc: 0, Mnc: 0, ProtecScheme: 0, HomeNetPki: 0, Msin: 0},
+		SecCap:   ngap.SecCapType{EA: 1, IA: 1},
+	}
+
+	pdu, _ := ngap.EncodeMsg(ngap.NASRegRequest, &regMsg)
+	_, err := c.Write(pdu)
+	if err != nil {
+		return err
+	}
+	c.Ctx = context.WithValue(c.Ctx, state.StateKey, state.RegReqDone)
+	return nil
+}
+
+func handlePDUSessionEstRequest(c state.Connection, buf []byte) error {
 	var msg ngap.PDUSessionEstAcceptMsg
 
-	if ea[c] == 1 {
+	if c.Ctx.Value(state.EA).(int) == 1 {
 		buf = crypto.DecryptAES(buf)
 	}
 
@@ -84,10 +98,10 @@ func handlePDUSessionEstRequest(c net.Conn, buf []byte) error {
 	buf = buf[8:]
 
 	switch {
-	case ia[c] == 0:
+	case c.Ctx.Value(state.IA) == 0:
 		return errNullIntegrity
-	case ia[c] < 5:
-		alg, ok := crypto.IAalg[int8(ia[c])]
+	case c.Ctx.Value(state.IA).(int) < 5:
+		alg, ok := crypto.IAalg[int8(c.Ctx.Value(state.IA).(int))]
 		if !ok {
 			return errIntegrityImp
 		}
@@ -117,15 +131,15 @@ func handlePDUSessionEstRequest(c net.Conn, buf []byte) error {
 	*/
 }
 
-func handleNASSecurityModeCommand(c net.Conn, buf []byte) error {
+func handleNASSecurityModeCommand(c state.Connection, buf []byte) error {
 	var msg ngap.NASSecurityModeCommandMsg
 	err := ngap.DecodeMsg(buf, &msg)
 	if err != nil {
 		return errors.New("cannot decode!")
 	}
 
-	ea[c] = msg.EaAlg
-	ia[c] = msg.IaAlg
+	c.Ctx = context.WithValue(c.Ctx, state.EA, msg.EaAlg)
+	c.Ctx = context.WithValue(c.Ctx, state.IA, msg.IaAlg)
 
 	// LocationUpdate
 
@@ -153,9 +167,9 @@ func handleNASSecurityModeCommand(c net.Conn, buf []byte) error {
 		fmt.Println(err)
 	}
 
-	mac := crypto.IAalg[int8(ia[c])](pdu)[:8]
+	mac := crypto.IAalg[int8(c.Ctx.Value(state.IA).(int))](pdu)[:8]
 
-	if ea[c] == 1 {
+	if c.Ctx.Value(state.EA).(int) == 1 {
 		pdu = crypto.EncryptAES(pdu)
 	}
 
@@ -181,9 +195,9 @@ func handleNASSecurityModeCommand(c net.Conn, buf []byte) error {
 		fmt.Println(err)
 	}
 
-	mac = crypto.IAalg[int8(ia[c])](pdu)[:8]
+	mac = crypto.IAalg[int8(c.Ctx.Value(state.IA).(int))](pdu)[:8]
 
-	if ea[c] == 1 {
+	if c.Ctx.Value(state.EA).(int) == 1 {
 		pdu = crypto.EncryptAES(pdu)
 	}
 
@@ -197,7 +211,7 @@ func handleNASSecurityModeCommand(c net.Conn, buf []byte) error {
 	return nil
 }
 
-func handleNASAuthRequest(c net.Conn, buf []byte) error {
+func handleNASAuthRequest(c state.Connection, buf []byte) error {
 	var msg ngap.NASAuthRequestMsg
 	err := ngap.DecodeMsg(buf, &msg)
 	if err != nil {
@@ -242,10 +256,11 @@ func main() {
 
 	for {
 		c, err := l.Accept()
+		connection := state.Connection{Conn: c, Ctx: context.Background()}
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		go handleConnection(c)
+		go handleConnection(connection)
 	}
 }
