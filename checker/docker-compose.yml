@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 services:
   # Give your container proper names!
   phreaking-checker:
@@ -6,3 +6,6 @@ services:
     # The checker runs a HTTP interfaces, so we need to map port 3031 to the outside (port 8000).
     ports:
       - 3303:3303
+    environment:
+      - GRPC_PASS=ultrasecretpasswordthatwillneverbebroken
+      - SIM_KEY=passphrasewhichneedstobe32bytes!

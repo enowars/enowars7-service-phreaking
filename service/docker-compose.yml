@@ -6,6 +6,8 @@ services:
       target: core
     ports:
       - "3399:3399"
+    environment:
+      - SIM_KEY=passphrasewhichneedstobe32bytes!
   phreaking-ue:
     build:
       context: .
@@ -15,3 +17,6 @@ services:
       - "9933:9933"
     volumes:
       - ./data/:/service/data:rw
+    environment:
+      - GRPC_PASS=ultrasecretpasswordthatwillneverbebroken
+      - SIM_KEY=passphrasewhichneedstobe32bytes!

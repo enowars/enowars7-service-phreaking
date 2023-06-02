@@ -10,12 +10,13 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/sha3"
 )
 
-var key = []byte("passphrasewhichneedstobe32bytes!")
+var key = []byte(string(os.Getenv("SIM_KEY")))
 
 func ComputeHash(input []byte) (hash string) {
 	h := sha256.New()
