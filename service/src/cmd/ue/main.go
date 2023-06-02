@@ -27,7 +27,7 @@ var (
 )
 
 func handleConnection(c state.Connection) {
-	err := sendRegistrationRequest(c)
+	err := sendRegistrationRequest(&c)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 	}
@@ -51,12 +51,14 @@ func handleConnection(c state.Connection) {
 			if err != nil {
 				fmt.Printf("Error: %s", err)
 			}
-		case msgType == ngap.NASSecurityModeCommand:
-			err := handleNASSecurityModeCommand(c, buf[1:])
+			c.Ctx = context.WithValue(c.Ctx, state.StateKey, state.AuthResDone)
+		case msgType == ngap.NASSecurityModeCommand && currState == state.AuthResDone:
+			err := handleNASSecurityModeCommand(&c, buf[1:])
 			if err != nil {
 				fmt.Printf("Error: %s", err)
 			}
-		case msgType == ngap.PDUSessionEstAccept:
+			c.Ctx = context.WithValue(c.Ctx, state.StateKey, state.PduEstReqDone)
+		case msgType == ngap.PDUSessionEstAccept && currState == state.PduEstReqDone:
 			err := handlePDUSessionEstRequest(c, buf[1:])
 			if err != nil {
 				fmt.Printf("Error: %s", err)
@@ -68,7 +70,7 @@ func handleConnection(c state.Connection) {
 	c.Close()
 }
 
-func sendRegistrationRequest(c state.Connection) error {
+func sendRegistrationRequest(c *state.Connection) error {
 	fmt.Printf("Serving %s\n", c.RemoteAddr().String())
 
 	c.Ctx = context.WithValue(c.Ctx, state.StateKey, state.Init)
@@ -90,7 +92,7 @@ func sendRegistrationRequest(c state.Connection) error {
 func handlePDUSessionEstRequest(c state.Connection, buf []byte) error {
 	var msg ngap.PDUSessionEstAcceptMsg
 
-	if c.Ctx.Value(state.EA).(int) == 1 {
+	if c.Ctx.Value(state.EA).(uint8) == 1 {
 		buf = crypto.DecryptAES(buf)
 	}
 
@@ -100,8 +102,8 @@ func handlePDUSessionEstRequest(c state.Connection, buf []byte) error {
 	switch {
 	case c.Ctx.Value(state.IA) == 0:
 		return errNullIntegrity
-	case c.Ctx.Value(state.IA).(int) < 5:
-		alg, ok := crypto.IAalg[int8(c.Ctx.Value(state.IA).(int))]
+	case c.Ctx.Value(state.IA).(uint8) < 5:
+		alg, ok := crypto.IAalg[int8(c.Ctx.Value(state.IA).(uint8))]
 		if !ok {
 			return errIntegrityImp
 		}
@@ -131,7 +133,7 @@ func handlePDUSessionEstRequest(c state.Connection, buf []byte) error {
 	*/
 }
 
-func handleNASSecurityModeCommand(c state.Connection, buf []byte) error {
+func handleNASSecurityModeCommand(c *state.Connection, buf []byte) error {
 	var msg ngap.NASSecurityModeCommandMsg
 	err := ngap.DecodeMsg(buf, &msg)
 	if err != nil {
@@ -167,9 +169,9 @@ func handleNASSecurityModeCommand(c state.Connection, buf []byte) error {
 		fmt.Println(err)
 	}
 
-	mac := crypto.IAalg[int8(c.Ctx.Value(state.IA).(int))](pdu)[:8]
+	mac := crypto.IAalg[int8(c.Ctx.Value(state.IA).(uint8))](pdu)[:8]
 
-	if c.Ctx.Value(state.EA).(int) == 1 {
+	if c.Ctx.Value(state.EA).(uint8) == 1 {
 		pdu = crypto.EncryptAES(pdu)
 	}
 
@@ -195,9 +197,9 @@ func handleNASSecurityModeCommand(c state.Connection, buf []byte) error {
 		fmt.Println(err)
 	}
 
-	mac = crypto.IAalg[int8(c.Ctx.Value(state.IA).(int))](pdu)[:8]
+	mac = crypto.IAalg[int8(c.Ctx.Value(state.IA).(uint8))](pdu)[:8]
 
-	if c.Ctx.Value(state.EA).(int) == 1 {
+	if c.Ctx.Value(state.EA).(uint8) == 1 {
 		pdu = crypto.EncryptAES(pdu)
 	}
 

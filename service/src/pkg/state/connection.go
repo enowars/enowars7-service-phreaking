@@ -22,4 +22,6 @@ type State int
 const (
 	Init State = iota
 	RegReqDone
+	AuthResDone
+	PduEstReqDone
 )
