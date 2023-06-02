@@ -4,18 +4,14 @@ services:
     build:
       context: .
       target: core
-    # The code should be copied into the container using COPY.
-    # Mount the data folder writable, so that information can be persisted across restarts.
-    volumes:
-      - ./data/:/data:rw
-    # Define the port mapping (external:internal port)
     ports:
       - "3399:3399"
   phreaking-ue:
     build:
       context: .
       target: ue
-    # Define the port mapping (external:internal port)
     ports:
       - "6060:6060"
       - "9933:9933"
+    volumes:
+      - ./data/:/service/data:rw

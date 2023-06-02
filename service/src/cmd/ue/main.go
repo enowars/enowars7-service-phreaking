@@ -131,7 +131,7 @@ func handleNASSecurityModeCommand(c net.Conn, buf []byte) error {
 
 	location := ""
 
-	readFile, err := os.Open("/tmp/location.data")
+	readFile, err := os.Open("/service/data/location.data")
 
 	if err != nil {
 		fmt.Println(err)

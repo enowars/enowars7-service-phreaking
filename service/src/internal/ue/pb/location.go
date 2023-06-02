@@ -17,7 +17,7 @@ type Server struct {
 
 func (s *Server) UpdateLocation(ctx context.Context, loc *Loc) (*Response, error) {
 	log.Printf("Receive message from client: %s", loc.Position)
-	file, err := os.OpenFile("/tmp/location.data", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile("/service/data/location.data", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Println(err)
 	}
