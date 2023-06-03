@@ -27,47 +27,59 @@ var (
 )
 
 func handleConnection(c state.Connection) {
+	timeout := time.NewTimer(time.Minute)
+	defer func() {
+		timeout.Stop()
+		c.Close()
+	}()
+
 	err := sendRegistrationRequest(&c)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 	}
 
 	for {
-		buf := make([]byte, 1024)
-
-		//len, err := c.Read(buf)
-		_, err := c.Read(buf)
-		if err != nil {
-			fmt.Printf("Error reading: %#v\n", err)
+		select {
+		case <-timeout.C:
+			log.Println("handleConnection run for more than a minute.")
 			return
-		}
-
-		msgType := ngap.MsgType(buf[0])
-		currState := c.Ctx.Value(state.StateKey).(state.State)
-
-		switch {
-		case msgType == ngap.NASAuthRequest && currState == state.RegReqDone:
-			err := handleNASAuthRequest(c, buf[1:])
-			if err != nil {
-				fmt.Printf("Error: %s", err)
-			}
-			c.Ctx = context.WithValue(c.Ctx, state.StateKey, state.AuthResDone)
-		case msgType == ngap.NASSecurityModeCommand && currState == state.AuthResDone:
-			err := handleNASSecurityModeCommand(&c, buf[1:])
-			if err != nil {
-				fmt.Printf("Error: %s", err)
-			}
-			c.Ctx = context.WithValue(c.Ctx, state.StateKey, state.PduEstReqDone)
-		case msgType == ngap.PDUSessionEstAccept && currState == state.PduEstReqDone:
-			err := handlePDUSessionEstRequest(c, buf[1:])
-			if err != nil {
-				fmt.Printf("Error: %s", err)
-			}
 		default:
-			fmt.Println("invalid message type for UE")
+
+			buf := make([]byte, 1024)
+
+			_, err = c.Read(buf)
+			if err != nil {
+				fmt.Printf("Error reading: %#v\n", err)
+				return
+			}
+
+			msgType := ngap.MsgType(buf[0])
+			currState := c.Ctx.Value(state.StateKey).(state.State)
+
+			switch {
+			case msgType == ngap.NASAuthRequest && currState == state.RegReqDone:
+				err := handleNASAuthRequest(c, buf[1:])
+				if err != nil {
+					fmt.Printf("Error: %s", err)
+				}
+				c.Ctx = context.WithValue(c.Ctx, state.StateKey, state.AuthResDone)
+			case msgType == ngap.NASSecurityModeCommand && currState == state.AuthResDone:
+				err := handleNASSecurityModeCommand(&c, buf[1:])
+				if err != nil {
+					fmt.Printf("Error: %s", err)
+				}
+				c.Ctx = context.WithValue(c.Ctx, state.StateKey, state.PduEstReqDone)
+			case msgType == ngap.PDUSessionEstAccept && currState == state.PduEstReqDone:
+				err := handlePDUSessionEstRequest(c, buf[1:])
+				if err != nil {
+					fmt.Printf("Error: %s", err)
+				}
+			default:
+				fmt.Println("invalid message type for UE")
+			}
 		}
 	}
-	c.Close()
+
 }
 
 func sendRegistrationRequest(c *state.Connection) error {
