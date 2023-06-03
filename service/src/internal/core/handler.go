@@ -24,8 +24,8 @@ var lastHandle = make(map[net.Conn]int32)
 var ranUeNgapId = make(map[net.Conn]int32)
 var amfUeNgapId = make(map[net.Conn]int32)
 var randTokens = make(map[net.Conn][]byte)
-var ea = make(map[net.Conn]int8)
-var ia = make(map[net.Conn]int8)
+var ea = make(map[net.Conn]uint8)
+var ia = make(map[net.Conn]uint8)
 var authenticated = make(map[net.Conn]bool)
 var locations = make(map[net.Conn][]string)
 
@@ -214,7 +214,7 @@ func handlePDUSessionEstRequest(c net.Conn, buf []byte) error {
 		fmt.Println(err)
 	}
 
-	mac = crypto.IAalg[int8(ia[c])](pdu)[:8]
+	mac = crypto.IAalg[uint8(ia[c])](pdu)[:8]
 
 	if ea[c] == 1 {
 		pdu = crypto.EncryptAES(pdu)
@@ -290,8 +290,8 @@ func handleNASRegRequest(c net.Conn, buf []byte) error {
 		return errDecode
 	}
 	lastHandle[c] = int32(ngap.NASRegRequest)
-	ea[c] = int8(msg.SecCap.EA)
-	ia[c] = int8(msg.SecCap.IA)
+	ea[c] = uint8(msg.SecCap.EA)
+	ia[c] = uint8(msg.SecCap.IA)
 
 	randToken := make([]byte, 32)
 	rand.Read(randToken)

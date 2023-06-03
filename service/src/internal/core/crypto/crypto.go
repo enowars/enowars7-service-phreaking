@@ -94,4 +94,4 @@ func IA4(msg []byte) (mac []byte) {
 	return hash.Sum(nil)
 }
 
-var IAalg = map[int8]func([]byte) []byte{0: IA0, 1: IA1, 2: IA2, 3: IA3, 4: IA4}
+var IAalg = map[uint8]func([]byte) []byte{0: IA0, 1: IA1, 2: IA2, 3: IA3, 4: IA4}
