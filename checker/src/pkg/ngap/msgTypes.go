@@ -1,6 +1,9 @@
 package ngap
 
+import "github.com/gofrs/uuid"
+
 type MsgType int
+type AmfUeNgapIdType uuid.UUID
 
 const (
 	// Interface Management Messages
@@ -26,6 +29,7 @@ const (
 	PDUSessionEstRequest
 	PDUSessionEstAccept
 	PDUSessionResourceReleaseCommand
+	// Location
 	LocationUpdate
 	LocationReportRequest
 	LocationReportResponse
@@ -54,13 +58,13 @@ type InitUEMessageMsg struct {
 }
 
 type DownNASTransMsg struct {
-	AmfUeNgapId uint32
+	AmfUeNgapId AmfUeNgapIdType
 	RanUeNgapId uint32
 	NasPdu      []byte
 }
 
 type UpNASTransMsg struct {
-	AmfUeNgapId uint32
+	AmfUeNgapId AmfUeNgapIdType
 	RanUeNgapId uint32
 	NasPdu      []byte
 	// Location
@@ -107,15 +111,13 @@ type NASAuthResponseMsg struct {
 
 type NASSecurityModeCommandMsg struct {
 	SecHeader uint8
-	// TODO: encode more efficently
-	EaAlg  uint8
-	IaAlg  uint8
-	SecCap SecCapType
+	EaAlg     uint8
+	IaAlg     uint8
+	SecCap    SecCapType
 }
 
 type PDUSessionEstRequestMsg struct {
-	PduSesId uint8
-	// 0 = IPv4, 1 = IPv6, 2 = Flag ;)
+	PduSesId   uint8
 	PduSesType uint8
 	// add integrity protetion maximum data rate
 }
@@ -133,12 +135,12 @@ type LocationUpdateMsg struct {
 }
 
 type LocationReportRequestMsg struct {
-	AmfUeNgapId uint32
+	AmfUeNgapId AmfUeNgapIdType
 	RanUeNgapId uint32
 }
 
 type LocationReportResponseMsg struct {
-	AmfUeNgapId uint32
+	AmfUeNgapId AmfUeNgapIdType
 	RanUeNgapId uint32
 	Locations   []string
 }

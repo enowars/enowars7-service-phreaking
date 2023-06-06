@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/enowars/enochecker-go v1.2.0
+	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/sirupsen/logrus v1.9.2
 	golang.org/x/crypto v0.9.0
 	google.golang.org/protobuf v1.30.0

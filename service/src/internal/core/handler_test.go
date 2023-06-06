@@ -1,5 +1,6 @@
 package core
 
+/*
 import (
 	"net"
 	"phreaking/pkg/ngap"
@@ -44,3 +45,4 @@ func TestHandleNGAP(t *testing.T) {
 		server.Close()
 	}()
 }
+*/

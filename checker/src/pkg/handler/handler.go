@@ -77,14 +77,28 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 		return err
 	}
 
+	setup := ngap.NGSetupRequestMsg{GranId: 0, Tac: 0, Plmn: 0}
+	buf, _ := ngap.EncodeMsg(ngap.NGSetupRequest, &setup)
+
+	_, err = coreConn.Write(buf)
+	if err != nil {
+		return err
+	}
+
 	reply := make([]byte, 512)
+	_, err = coreConn.Read(reply)
+	if err != nil {
+		return err
+	}
+
+	reply = make([]byte, 512)
 	_, err = ueConn.Read(reply)
 	if err != nil {
 		return err
 	}
 
 	initUeMsg := ngap.InitUEMessageMsg{NasPdu: reply, RanUeNgapId: 1}
-	buf, _ := ngap.EncodeMsg(ngap.InitUEMessage, &initUeMsg)
+	buf, _ = ngap.EncodeMsg(ngap.InitUEMessage, &initUeMsg)
 
 	_, err = coreConn.Write(buf)
 	if err != nil {
@@ -118,7 +132,7 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 	}
 
 	// AuthRes
-	up := ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: 1}
+	up := ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: down.AmfUeNgapId}
 	buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
 
 	_, err = coreConn.Write(buf)
@@ -270,7 +284,21 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 		return nil, err
 	}
 
+	setup := ngap.NGSetupRequestMsg{GranId: 0, Tac: 0, Plmn: 0}
+	buf, _ := ngap.EncodeMsg(ngap.NGSetupRequest, &setup)
+
+	_, err = coreConn.Write(buf)
+	if err != nil {
+		return nil, err
+	}
+
 	reply := make([]byte, 512)
+	_, err = coreConn.Read(reply)
+	if err != nil {
+		return nil, err
+	}
+
+	reply = make([]byte, 512)
 	_, err = ueConn.Read(reply)
 	if err != nil {
 		return nil, err
@@ -288,7 +316,7 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 	pdu, _ := ngap.EncodeMsg(ngap.NASRegRequest, &reg)
 
 	initUeMsg := ngap.InitUEMessageMsg{NasPdu: pdu, RanUeNgapId: 1}
-	buf, _ := ngap.EncodeMsg(ngap.InitUEMessage, &initUeMsg)
+	buf, _ = ngap.EncodeMsg(ngap.InitUEMessage, &initUeMsg)
 
 	_, err = coreConn.Write(buf)
 	if err != nil {
@@ -322,7 +350,7 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 	}
 
 	// AuthRes
-	up := ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: 1}
+	up := ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: down.AmfUeNgapId}
 	buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
 
 	_, err = coreConn.Write(buf)

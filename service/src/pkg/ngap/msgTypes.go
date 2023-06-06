@@ -1,6 +1,9 @@
 package ngap
 
+import "github.com/gofrs/uuid"
+
 type MsgType int
+type AmfUeNgapIdType uuid.UUID
 
 const (
 	// Interface Management Messages
@@ -55,13 +58,13 @@ type InitUEMessageMsg struct {
 }
 
 type DownNASTransMsg struct {
-	AmfUeNgapId uint32
+	AmfUeNgapId AmfUeNgapIdType
 	RanUeNgapId uint32
 	NasPdu      []byte
 }
 
 type UpNASTransMsg struct {
-	AmfUeNgapId uint32
+	AmfUeNgapId AmfUeNgapIdType
 	RanUeNgapId uint32
 	NasPdu      []byte
 	// Location
@@ -132,12 +135,12 @@ type LocationUpdateMsg struct {
 }
 
 type LocationReportRequestMsg struct {
-	AmfUeNgapId uint32
+	AmfUeNgapId AmfUeNgapIdType
 	RanUeNgapId uint32
 }
 
 type LocationReportResponseMsg struct {
-	AmfUeNgapId uint32
+	AmfUeNgapId AmfUeNgapIdType
 	RanUeNgapId uint32
 	Locations   []string
 }
