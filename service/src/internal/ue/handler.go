@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"phreaking/internal/core/crypto"
+	"phreaking/internal/crypto"
 	"phreaking/pkg/ngap"
 	"time"
 )

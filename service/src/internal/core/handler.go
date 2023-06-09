@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"phreaking/internal/core/crypto"
+	"phreaking/internal/crypto"
 	"phreaking/pkg/ngap"
 
 	"github.com/gofrs/uuid"

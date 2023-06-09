@@ -3,7 +3,7 @@ package ngap
 import (
 	"bytes"
 	"encoding/gob"
-	"phreaking/internal/core/crypto"
+	"phreaking/internal/crypto"
 )
 
 // Generic message decoder
