@@ -37,7 +37,14 @@ func EncryptAES(input []byte) (res []byte) {
 	}
 	nonce := make([]byte, gcmInstance.NonceSize())
 	_, _ = io.ReadFull(rand.Reader, nonce)
-	return gcmInstance.Seal(nonce, nonce, input, nil)
+	ct := gcmInstance.Seal(nil, nonce, input, nil)
+	nonceSize := len(nonce)
+	bufSize := len(ct) + nonceSize + 1
+	buf := make([]byte, bufSize)
+	buf[0] = byte(nonceSize)
+	copy(buf[1:1+nonceSize], nonce)
+	copy(buf[1+nonceSize:], ct)
+	return buf
 }
 
 func DecryptAES(ct []byte) (res []byte) {
@@ -49,8 +56,8 @@ func DecryptAES(ct []byte) (res []byte) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	nonceSize := gcmInstance.NonceSize()
-	nonce, cipheredText := ct[:nonceSize], ct[nonceSize:]
+	nonceSize := int(ct[0])
+	nonce, cipheredText := ct[1:1+nonceSize], ct[1+nonceSize:]
 	originalText, err := gcmInstance.Open(nil, nonce, cipheredText, nil)
 	if err != nil {
 		log.Fatalln(err)

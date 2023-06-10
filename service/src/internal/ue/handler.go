@@ -22,12 +22,14 @@ var (
 func (u *UE) HandlePDUSessionEstAccept(c net.Conn, msgbuf []byte) error {
 	var msg ngap.PDUSessionEstAcceptMsg
 
+	mac := msgbuf[:8]
+
+	msgbuf = msgbuf[8:]
+
 	if u.EaAlg == 1 {
 		msgbuf = crypto.DecryptAES(msgbuf)
 	}
 
-	mac := msgbuf[:8]
-	msgbuf = msgbuf[8:]
 	switch {
 	case u.IaAlg == 0:
 		return errNullIntegrity
@@ -87,11 +89,11 @@ func (u *UE) HandleNASSecurityModeCommand(c net.Conn, msgbuf []byte) error {
 		fmt.Println(err)
 	}
 
-	mac := crypto.IAalg[u.IaAlg](pdu)[:8]
-
 	if u.EaAlg == 1 {
 		pdu = crypto.EncryptAES(pdu)
 	}
+
+	mac := crypto.IAalg[u.IaAlg](pdu)[:8]
 
 	var b bytes.Buffer
 	b.WriteByte(byte(ngap.LocationUpdate))
@@ -115,11 +117,11 @@ func (u *UE) HandleNASSecurityModeCommand(c net.Conn, msgbuf []byte) error {
 		fmt.Println(err)
 	}
 
-	mac = crypto.IAalg[u.IaAlg](pdu)[:8]
-
 	if u.EaAlg == 1 {
 		pdu = crypto.EncryptAES(pdu)
 	}
+
+	mac = crypto.IAalg[u.IaAlg](pdu)[:8]
 
 	b.WriteByte(byte(ngap.PDUSessionEstRequest))
 	b.Write(mac)

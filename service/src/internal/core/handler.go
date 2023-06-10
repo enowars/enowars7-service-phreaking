@@ -147,12 +147,12 @@ func handleLocationUpdate(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error
 		return errNotAuth
 	}
 
+	mac := buf[:8]
+	buf = buf[8:]
+
 	if ue.EaAlg == 1 {
 		buf = crypto.DecryptAES(buf)
 	}
-
-	mac := buf[:8]
-	buf = buf[8:]
 
 	switch {
 	case ue.IaAlg == 0:
@@ -182,12 +182,12 @@ func handleLocationUpdate(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error
 func handlePDUSessionEstRequest(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error {
 	var msg ngap.PDUSessionEstRequestMsg
 
+	mac := buf[:8]
+	buf = buf[8:]
+
 	if ue.EaAlg == 1 {
 		buf = crypto.DecryptAES(buf)
 	}
-
-	mac := buf[:8]
-	buf = buf[8:]
 
 	switch {
 	case ue.IaAlg == 0:
@@ -231,11 +231,11 @@ func handlePDUSessionEstRequest(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE)
 		fmt.Println(err)
 	}
 
-	mac = crypto.IAalg[ue.IaAlg](pdu)[:8]
-
 	if ue.EaAlg == 1 {
 		pdu = crypto.EncryptAES(pdu)
 	}
+
+	mac = crypto.IAalg[ue.IaAlg](pdu)[:8]
 
 	var b bytes.Buffer
 	b.WriteByte(byte(ngap.PDUSessionEstAccept))
