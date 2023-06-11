@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"phreaking/internal/crypto"
+	"phreaking/internal/io"
 	"phreaking/pkg/ngap"
 
 	"github.com/gofrs/uuid"
@@ -28,15 +29,14 @@ func (amf *Amf) HandleConnection(c net.Conn) {
 	var amfg *AmfGNB
 
 	for {
-		buf := make([]byte, 1024)
 
-		//len, err := c.Read(buf)
-		_, err := c.Read(buf)
+		buf, err := io.RecvMsg(c)
 		if err != nil {
 			fmt.Printf("Error reading: %#v\n", err)
 			c.Close()
 			return
 		}
+
 		msgType := ngap.MsgType(buf[0])
 		if msgType == ngap.NGSetupRequest && amfg == nil {
 			amfg, err = amf.handleNGSetupRequest(c, buf[1:])
@@ -74,7 +74,7 @@ func (amf *Amf) handleNGSetupRequest(c net.Conn, buf []byte) (*AmfGNB, error) {
 		return nil, errEncode
 	}
 
-	SendMsg(c, []byte(bytesRes))
+	io.SendMsg(c, []byte(bytesRes))
 	return amfg, nil
 }
 
@@ -250,7 +250,7 @@ func handlePDUSessionEstRequest(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE)
 		fmt.Println(err)
 	}
 
-	return SendMsg(c, buf)
+	return io.SendMsg(c, buf)
 }
 
 func handlePDUSessionResourceSetupRequest() {
@@ -323,7 +323,7 @@ func (amf *Amf) handleInitUEMessage(c net.Conn, buf []byte, amfg *AmfGNB) error 
 		return errEncode
 	}
 
-	return SendMsg(c, downBuf)
+	return io.SendMsg(c, downBuf)
 }
 
 func handleNASAuthResponse(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error {
@@ -354,5 +354,5 @@ func handleNASAuthResponse(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) erro
 	downTrans := ngap.DownNASTransMsg{AmfUeNgapId: ue.AmfUeNgapId, RanUeNgapId: ue.RanUeNgapId, NasPdu: pdu}
 	downTransBuf, _ := ngap.EncodeMsg(ngap.DownNASTrans, &downTrans)
 
-	return SendMsg(c, downTransBuf)
+	return io.SendMsg(c, downTransBuf)
 }

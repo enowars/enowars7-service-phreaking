@@ -10,5 +10,4 @@
 
 - Handle errors by issuing an "Error" protocol message and removing state.
 - Implement SecCapType EA and IA encoding to scheme in comment
-- Maybe add message length to "headers" of messages, so TCP message buffers can be the correct size with no extra 0 bytes.
 - Putnoise/getnoise will validate that 0 encryption is not turned off completely.

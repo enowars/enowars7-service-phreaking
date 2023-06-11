@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"checker/pkg/crypto"
+	"checker/pkg/io"
 	"checker/pkg/ngap"
 	"checker/pkg/pb"
 
@@ -80,19 +81,17 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 	setup := ngap.NGSetupRequestMsg{GranId: 0, Tac: 0, Plmn: 0}
 	buf, _ := ngap.EncodeMsg(ngap.NGSetupRequest, &setup)
 
-	_, err = coreConn.Write(buf)
+	err = io.SendMsg(coreConn, buf)
 	if err != nil {
 		return err
 	}
 
-	reply := make([]byte, 512)
-	_, err = coreConn.Read(reply)
+	reply, err := io.RecvMsg(coreConn)
 	if err != nil {
 		return err
 	}
 
-	reply = make([]byte, 512)
-	_, err = ueConn.Read(reply)
+	reply, err = io.RecvMsg(ueConn)
 	if err != nil {
 		return err
 	}
@@ -100,15 +99,13 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 	initUeMsg := ngap.InitUEMessageMsg{NasPdu: reply, RanUeNgapId: 1}
 	buf, _ = ngap.EncodeMsg(ngap.InitUEMessage, &initUeMsg)
 
-	_, err = coreConn.Write(buf)
+	err = io.SendMsg(coreConn, buf)
 	if err != nil {
 		return err
 	}
 
-	reply = make([]byte, 512)
-
 	// AuthReq
-	_, err = coreConn.Read(reply)
+	reply, err = io.RecvMsg(coreConn)
 	if err != nil {
 		return err
 	}
@@ -119,14 +116,12 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 		return errors.New("cannot decode")
 	}
 
-	_, err = ueConn.Write(down.NasPdu)
+	err = io.SendMsg(ueConn, down.NasPdu)
 	if err != nil {
 		return err
 	}
 
-	reply = make([]byte, 512)
-
-	_, err = ueConn.Read(reply)
+	reply, err = io.RecvMsg(ueConn)
 	if err != nil {
 		return err
 	}
@@ -135,14 +130,13 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 	up := ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: down.AmfUeNgapId}
 	buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
 
-	_, err = coreConn.Write(buf)
+	err = io.SendMsg(coreConn, buf)
 	if err != nil {
 		return err
 	}
 
-	reply = make([]byte, 512)
 	// SecModeCmd
-	_, err = coreConn.Read(reply)
+	reply, err = io.RecvMsg(coreConn)
 	if err != nil {
 		return err
 	}
@@ -154,25 +148,15 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 		return errors.New("cannot decode")
 	}
 
-	_, err = ueConn.Write(down.NasPdu)
+	err = io.SendMsg(ueConn, down.NasPdu)
 	if err != nil {
 		return err
 	}
-
-	reply = make([]byte, 512)
 
 	// LocationUpdate
-	_, err = ueConn.Read(reply)
+	reply, err = io.RecvMsg(ueConn)
 	if err != nil {
 		return err
-	}
-
-	// Remove trailing zeros for decryption
-	for i, b := range reply {
-		if (b == 0x00) && (reply[i+1] == 0x00) && (reply[i+2] == 0x00) {
-			reply = reply[:i]
-			break
-		}
 	}
 
 	dec := crypto.DecryptAES(reply[9:])
@@ -287,19 +271,17 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 	setup := ngap.NGSetupRequestMsg{GranId: 0, Tac: 0, Plmn: 0}
 	buf, _ := ngap.EncodeMsg(ngap.NGSetupRequest, &setup)
 
-	_, err = coreConn.Write(buf)
+	err = io.SendMsg(coreConn, buf)
 	if err != nil {
 		return nil, err
 	}
 
-	reply := make([]byte, 512)
-	_, err = coreConn.Read(reply)
+	reply, err := io.RecvMsg(coreConn)
 	if err != nil {
 		return nil, err
 	}
 
-	reply = make([]byte, 512)
-	_, err = ueConn.Read(reply)
+	reply, err = io.RecvMsg(ueConn)
 	if err != nil {
 		return nil, err
 	}
@@ -318,15 +300,13 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 	initUeMsg := ngap.InitUEMessageMsg{NasPdu: pdu, RanUeNgapId: 1}
 	buf, _ = ngap.EncodeMsg(ngap.InitUEMessage, &initUeMsg)
 
-	_, err = coreConn.Write(buf)
+	err = io.SendMsg(coreConn, buf)
 	if err != nil {
 		return nil, err
 	}
 
-	reply = make([]byte, 512)
-
 	// AuthReq
-	_, err = coreConn.Read(reply)
+	reply, err = io.RecvMsg(coreConn)
 	if err != nil {
 		return nil, err
 	}
@@ -337,14 +317,12 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 		return nil, errors.New("cannot decode")
 	}
 
-	_, err = ueConn.Write(down.NasPdu)
+	err = io.SendMsg(ueConn, down.NasPdu)
 	if err != nil {
 		return nil, err
 	}
 
-	reply = make([]byte, 512)
-
-	_, err = ueConn.Read(reply)
+	reply, err = io.RecvMsg(ueConn)
 	if err != nil {
 		return nil, err
 	}
@@ -353,14 +331,13 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 	up := ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: down.AmfUeNgapId}
 	buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
 
-	_, err = coreConn.Write(buf)
+	err = io.SendMsg(coreConn, buf)
 	if err != nil {
 		return nil, err
 	}
 
-	reply = make([]byte, 512)
 	// SecModeCmd
-	_, err = coreConn.Read(reply)
+	reply, err = io.RecvMsg(coreConn)
 	if err != nil {
 		return nil, err
 	}
@@ -372,15 +349,13 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 		return nil, errors.New("cannot decode")
 	}
 
-	_, err = ueConn.Write(down.NasPdu)
+	err = io.SendMsg(ueConn, down.NasPdu)
 	if err != nil {
 		return nil, err
 	}
 
-	reply = make([]byte, 512)
-
 	// LocationUpdate
-	_, err = ueConn.Read(reply)
+	reply, err = io.RecvMsg(ueConn)
 	if err != nil {
 		return nil, err
 	}

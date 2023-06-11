@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"phreaking/internal/io"
 	"phreaking/internal/ue"
 	"phreaking/internal/ue/pb"
 	"phreaking/pkg/ngap"
@@ -35,12 +36,10 @@ func handleConnection(c net.Conn) {
 			log.Println("handleConnection run for more than a minute.")
 			return
 		default:
-
-			buf := make([]byte, 1024)
-
-			_, err = c.Read(buf)
+			buf, err := io.RecvMsg(c)
 			if err != nil {
 				fmt.Printf("Error reading: %#v\n", err)
+				c.Close()
 				return
 			}
 
@@ -82,11 +81,8 @@ func sendRegistrationRequest(c net.Conn) error {
 	}
 
 	pdu, _ := ngap.EncodeMsg(ngap.NASRegRequest, &regMsg)
-	_, err := c.Write(pdu)
-	if err != nil {
-		return err
-	}
-	return nil
+	err := io.SendMsg(c, pdu)
+	return err
 }
 
 func main() {

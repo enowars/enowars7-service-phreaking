@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"phreaking/internal/crypto"
+	"phreaking/internal/io"
 	"phreaking/pkg/ngap"
 	"time"
 )
@@ -102,7 +103,7 @@ func (u *UE) HandleNASSecurityModeCommand(c net.Conn, msgbuf []byte) error {
 
 	pdu = b.Bytes()
 
-	c.Write(pdu)
+	io.SendMsg(c, pdu)
 
 	b.Reset()
 
@@ -129,7 +130,7 @@ func (u *UE) HandleNASSecurityModeCommand(c net.Conn, msgbuf []byte) error {
 
 	pdu = b.Bytes()
 
-	c.Write(pdu)
+	io.SendMsg(c, pdu)
 	return nil
 }
 
@@ -145,6 +146,6 @@ func (u *UE) HandleNASAuthRequest(c net.Conn, msgbuf []byte) error {
 	authRes := ngap.NASAuthResponseMsg{SecHeader: 0, Res: res}
 	pdu, _ := ngap.EncodeMsg(ngap.NASAuthResponse, &authRes)
 
-	c.Write(pdu)
+	io.SendMsg(c, pdu)
 	return nil
 }
