@@ -8,15 +8,51 @@ services:
       - "3399:3399"
     environment:
       - SIM_KEY=passphrasewhichneedstobe32bytes!
-  phreaking-ue:
+  phreaking-ue-0:
     build:
       context: .
       target: ue
     ports:
       - "6060:6060"
+      - "9930:9930"
+    volumes:
+      - ./data/ue1:/service/data:rw
+    environment:
+      - GRPC_PASS=ultrasecretpasswordthatwillneverbebroken
+      - SIM_KEY=passphrasewhichneedstobe32bytes!
+  phreaking-ue-1:
+    build:
+      context: .
+      target: ue
+    ports:
+      - "6061:6060"
+      - "9931:9933"
+    volumes:
+      - ./data/ue2:/service/data:rw
+    environment:
+      - GRPC_PASS=ultrasecretpasswordthatwillneverbebroken
+      - SIM_KEY=passphrasewhichneedstobe32bytes!
+  phreaking-ue-2:
+    build:
+      context: .
+      target: ue
+    ports:
+      - "6062:6060"
+      - "9932:9933"
+    volumes:
+      - ./data/ue3:/service/data:rw
+    environment:
+      - GRPC_PASS=ultrasecretpasswordthatwillneverbebroken
+      - SIM_KEY=passphrasewhichneedstobe32bytes!
+  phreaking-ue-3:
+    build:
+      context: .
+      target: ue
+    ports:
+      - "6063:6060"
       - "9933:9933"
     volumes:
-      - ./data/:/service/data:rw
+      - ./data/ue4:/service/data:rw
     environment:
       - GRPC_PASS=ultrasecretpasswordthatwillneverbebroken
       - SIM_KEY=passphrasewhichneedstobe32bytes!

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"os"
+	"strconv"
 
 	"checker/pkg/crypto"
 	"checker/pkg/io"
@@ -39,8 +40,10 @@ func New(log *logrus.Logger) *Handler {
 }
 
 func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) (*enochecker.HandlerInfo, error) {
+	port := "993" + strconv.Itoa(int(message.CurrentRoundId)%4)
+	logrus.Debugln(port)
 	var conn *grpc.ClientConn
-	conn, err := grpc.Dial(message.Address+":9933", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(message.Address+":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +57,7 @@ func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) 
 	if err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return enochecker.NewPutFlagInfo(port), nil
 }
 
 func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskMessage) error {
@@ -68,7 +71,9 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 		return err
 	}
 
-	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":6060")
+	port := "606" + strconv.Itoa(int(message.CurrentRoundId-1)%4)
+	logrus.Debugln(port)
+	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
 	if err != nil {
 		return err
 	}
@@ -258,7 +263,9 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 		return nil, err
 	}
 
-	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":6060")
+	port := "606" + strconv.Itoa(int(message.CurrentRoundId-1)%4)
+	logrus.Debugln(port)
+	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
 	if err != nil {
 		return nil, err
 	}

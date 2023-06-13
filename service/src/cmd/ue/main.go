@@ -86,7 +86,7 @@ func sendRegistrationRequest(c net.Conn) error {
 }
 
 func main() {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9933))
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9930))
 	if err != nil {
 		log.Fatalf("grpc server failed to listen: %v", err)
 	}
