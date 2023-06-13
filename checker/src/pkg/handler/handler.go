@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"strings"
 
 	"checker/pkg/crypto"
 	"checker/pkg/io"
@@ -180,7 +179,7 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 	if err != nil {
 		return errors.New("cannot decode")
 	}
-	if strings.Contains(loc.Location, message.Flag) {
+	if loc.Location == message.Flag {
 		return nil
 	}
 	return enochecker.ErrFlagNotFound

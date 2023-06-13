@@ -67,7 +67,6 @@ func (u *UE) HandleNASSecurityModeCommand(c net.Conn, msgbuf []byte) error {
 	// LocationUpdate
 
 	location := ""
-	prev := location
 
 	readFile, err := os.Open("/service/data/location.data")
 
@@ -79,11 +78,8 @@ func (u *UE) HandleNASSecurityModeCommand(c net.Conn, msgbuf []byte) error {
 	fileScanner.Split(bufio.ScanLines)
 
 	for fileScanner.Scan() {
-		prev = location
 		location = fileScanner.Text()
 	}
-
-	location = prev + "\n" + location
 
 	readFile.Close()
 
