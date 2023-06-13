@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"os"
 	"strconv"
@@ -40,9 +39,10 @@ func New(log *logrus.Logger) *Handler {
 	}
 }
 
+var tasks map[string]string
+
 func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) (*enochecker.HandlerInfo, error) {
 	port := "993" + strconv.Itoa(int(message.CurrentRoundId)%4)
-	fmt.Println(port)
 	var conn *grpc.ClientConn
 	conn, err := grpc.Dial(message.Address+":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -59,7 +59,7 @@ func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) 
 		return nil, err
 	}
 	port = "606" + strconv.Itoa(int(message.CurrentRoundId)%4)
-	fmt.Println(port)
+	tasks[message.TaskChainId] = port
 	return enochecker.NewPutFlagInfo(port), nil
 }
 
@@ -74,7 +74,7 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 		return err
 	}
 
-	port := "606" + strconv.Itoa(int(message.CurrentRoundId)%4)
+	port := tasks[message.TaskChainId]
 	logrus.Debugln(port)
 	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
 	if err != nil {
@@ -266,7 +266,7 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 		return nil, err
 	}
 
-	port := "606" + strconv.Itoa(int(message.CurrentRoundId)%4)
+	port := tasks[message.TaskChainId]
 	logrus.Debugln(port)
 	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
 	if err != nil {
