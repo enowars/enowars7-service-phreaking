@@ -57,6 +57,7 @@ func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) 
 	if err != nil {
 		return nil, err
 	}
+	port = "6060" + strconv.Itoa(int(message.CurrentRoundId)%4)
 	return enochecker.NewPutFlagInfo(port), nil
 }
 
