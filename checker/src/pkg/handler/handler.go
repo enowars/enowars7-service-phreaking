@@ -57,7 +57,7 @@ func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) 
 	if err != nil {
 		return nil, err
 	}
-	port = "6060" + strconv.Itoa(int(message.CurrentRoundId)%4)
+	port = "606" + strconv.Itoa(int(message.CurrentRoundId)%4)
 	return enochecker.NewPutFlagInfo(port), nil
 }
 
@@ -72,7 +72,7 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 		return err
 	}
 
-	port := "606" + strconv.Itoa(int(message.CurrentRoundId-1)%4)
+	port := "606" + strconv.Itoa(int(message.CurrentRoundId)%4)
 	logrus.Debugln(port)
 	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
 	if err != nil {
@@ -264,7 +264,7 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 		return nil, err
 	}
 
-	port := "606" + strconv.Itoa(int(message.CurrentRoundId-1)%4)
+	port := "606" + strconv.Itoa(int(message.CurrentRoundId)%4)
 	logrus.Debugln(port)
 	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
 	if err != nil {
