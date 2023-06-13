@@ -39,7 +39,7 @@ func New(log *logrus.Logger) *Handler {
 	}
 }
 
-var tasks map[string]string
+var tasks map[string]string = make(map[string]string)
 
 func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) (*enochecker.HandlerInfo, error) {
 	port := "993" + strconv.Itoa(int(message.CurrentRoundId)%4)
@@ -74,7 +74,10 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 		return err
 	}
 
-	port := tasks[message.TaskChainId]
+	port, ok := tasks[message.TaskChainId]
+	if !ok {
+		return enochecker.NewMumbleError(errors.New("no entry for task id"))
+	}
 	logrus.Debugln(port)
 	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
 	if err != nil {
@@ -266,8 +269,11 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 		return nil, err
 	}
 
-	port := tasks[message.TaskChainId]
-	logrus.Debugln(port)
+	port, ok := tasks[message.TaskChainId]
+	if !ok {
+		return nil, errors.New("no entry for task id")
+	}
+
 	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
 	if err != nil {
 		return nil, err
