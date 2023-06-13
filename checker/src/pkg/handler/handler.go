@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"strconv"
@@ -41,7 +42,7 @@ func New(log *logrus.Logger) *Handler {
 
 func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) (*enochecker.HandlerInfo, error) {
 	port := "993" + strconv.Itoa(int(message.CurrentRoundId)%4)
-	logrus.Debugln(port)
+	fmt.Println(port)
 	var conn *grpc.ClientConn
 	conn, err := grpc.Dial(message.Address+":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -58,6 +59,7 @@ func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) 
 		return nil, err
 	}
 	port = "606" + strconv.Itoa(int(message.CurrentRoundId)%4)
+	fmt.Println(port)
 	return enochecker.NewPutFlagInfo(port), nil
 }
 
