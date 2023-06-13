@@ -9,3 +9,11 @@ services:
     environment:
       - GRPC_PASS=ultrasecretpasswordthatwillneverbebroken
       - SIM_KEY=passphrasewhichneedstobe32bytes!
+      - REDIS_PASS=asimplesentenceisbetter
+  phreaking-db:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - ./data:/data:rw
+    command: redis-server --save 20 1 --loglevel warning --requirepass asimplesentenceisbetter
+

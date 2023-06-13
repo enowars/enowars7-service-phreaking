@@ -13,6 +13,7 @@ import (
 	"checker/pkg/pb"
 
 	"github.com/enowars/enochecker-go"
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -31,20 +32,19 @@ var ErrVariantNotFound = errors.New("variant not found")
 
 type Handler struct {
 	log *logrus.Logger
+	db  *redis.Client
 }
 
-func New(log *logrus.Logger) *Handler {
+func New(log *logrus.Logger, db *redis.Client) *Handler {
 	return &Handler{
 		log: log,
+		db:  db,
 	}
 }
 
-var tasks map[string]string = make(map[string]string)
-var portctr int = 0
-
 func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) (*enochecker.HandlerInfo, error) {
-	portctr = (portctr + 1) % 4
-	port := "993" + strconv.Itoa(portctr)
+	portNum := strconv.Itoa(int(message.CurrentRoundId % 4))
+	port := "993" + portNum
 	var conn *grpc.ClientConn
 	conn, err := grpc.Dial(message.Address+":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -60,8 +60,11 @@ func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) 
 	if err != nil {
 		return nil, err
 	}
-	port = "606" + strconv.Itoa(portctr)
-	tasks[message.TaskChainId] = port
+	port = "606" + portNum
+	if err = h.db.Set(ctx, message.TaskChainId, port, 0).Err(); err != nil {
+		h.log.Error(err)
+		return nil, enochecker.NewMumbleError(errors.New("not able to write taskid to db"))
+	}
 	return enochecker.NewPutFlagInfo(port), nil
 }
 
@@ -76,11 +79,11 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 		return err
 	}
 
-	port, ok := tasks[message.TaskChainId]
-	if !ok {
+	port, err := h.db.Get(ctx, message.TaskChainId).Result()
+	if err != nil {
 		return enochecker.NewMumbleError(errors.New("no entry for task id"))
 	}
-	logrus.Debugln(port)
+
 	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
 	if err != nil {
 		return err
@@ -183,68 +186,6 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 		return nil
 	}
 	return enochecker.ErrFlagNotFound
-
-	/*
-
-		var authReq ngap.NASAuthRequestMsg
-		err = ngap.DecodeMsg(down.NasPdu[1:], &authReq)
-		if err != nil {
-			return errors.New("cannot decode")
-		}
-		_, err = coreConn.Write(down.NasPdu)
-		if err != nil {
-			return err
-		}
-
-		res := crypto.IA2(authReq.Rand)
-
-		authRes := ngap.NASAuthResponseMsg{SecHeader: 0, Res: res}
-		pdu, _ = ngap.EncodeMsg(ngap.NASAuthResponse, &authRes)
-
-		up := ngap.UpNASTransMsg{NasPdu: pdu, RanUeNgapId: 1}
-		buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
-
-		_, err = conn.Write(buf)
-		if err != nil {
-			return err
-		}
-
-		time.Sleep(500 * time.Millisecond)
-
-		locreq := ngap.LocationReportRequestMsg{AmfUeNgapId: 1, RanUeNgapId: 1}
-		buf, err = ngap.EncodeMsg(ngap.LocationReportRequest, &locreq)
-		if err != nil {
-			return err
-		}
-
-		_, err = conn.Write(buf)
-		if err != nil {
-			return err
-		}
-
-		reply = make([]byte, 1024)
-
-		_, err = conn.Read(reply)
-		if err != nil {
-			return err
-		}
-
-		var report ngap.LocationReportResponseMsg
-		err = ngap.DecodeMsg(reply[1:], &report)
-		if err != nil {
-			return errors.New("cannot decode")
-		}
-
-		logrus.Println(report.Locations)
-
-		for _, s := range report.Locations {
-			if s == message.Flag {
-				return nil
-			}
-		}
-
-		return enochecker.ErrFlagNotFound
-	*/
 }
 
 func (h *Handler) GetFlag(ctx context.Context, message *enochecker.TaskMessage) error {
@@ -271,10 +212,8 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 		return nil, err
 	}
 
-	port, ok := tasks[message.TaskChainId]
-	if !ok {
-		return nil, errors.New("no entry for task id")
-	}
+	portNum := strconv.Itoa(int(message.CurrentRoundId % 4))
+	port := "606" + portNum
 
 	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
 	if err != nil {
