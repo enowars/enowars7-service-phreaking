@@ -40,9 +40,11 @@ func New(log *logrus.Logger) *Handler {
 }
 
 var tasks map[string]string = make(map[string]string)
+var portctr int = 0
 
 func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) (*enochecker.HandlerInfo, error) {
-	port := "993" + strconv.Itoa(int(message.CurrentRoundId)%4)
+	portctr = (portctr + 1) % 4
+	port := "993" + strconv.Itoa(portctr)
 	var conn *grpc.ClientConn
 	conn, err := grpc.Dial(message.Address+":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -58,7 +60,7 @@ func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) 
 	if err != nil {
 		return nil, err
 	}
-	port = "606" + strconv.Itoa(int(message.CurrentRoundId)%4)
+	port = "606" + strconv.Itoa(portctr)
 	tasks[message.TaskChainId] = port
 	return enochecker.NewPutFlagInfo(port), nil
 }
