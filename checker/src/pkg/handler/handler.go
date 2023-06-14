@@ -43,7 +43,7 @@ func New(log *logrus.Logger, db *redis.Client) *Handler {
 }
 
 func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) (*enochecker.HandlerInfo, error) {
-	portNum := strconv.Itoa(int(message.CurrentRoundId % 4))
+	portNum := strconv.Itoa(int(message.CurrentRoundId % 10))
 	port := "993" + portNum
 	var conn *grpc.ClientConn
 	conn, err := grpc.Dial(message.Address+":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -212,7 +212,7 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 		return nil, err
 	}
 
-	portNum := strconv.Itoa(int(message.CurrentRoundId % 4))
+	portNum := strconv.Itoa(int(message.CurrentRoundId % 10))
 	port := "606" + portNum
 
 	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)

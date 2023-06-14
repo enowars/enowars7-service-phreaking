@@ -7,8 +7,8 @@ services:
     ports:
       - 3303:3303
     environment:
-      - GRPC_PASS=ultrasecretpasswordthatwillneverbebroken
-      - SIM_KEY=passphrasewhichneedstobe32bytes!
+      - GRPC_PASS=${GRPC_PASS}
+      - SIM_KEY=${SIM_KEY}
       - REDIS_PASS=asimplesentenceisbetter
   phreaking-db:
     image: redis:7-alpine
