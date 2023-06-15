@@ -23,8 +23,8 @@ import (
 var serviceInfo = &enochecker.InfoMessage{
 	ServiceName:     "phreaking",
 	FlagVariants:    1,
-	NoiseVariants:   1,
-	HavocVariants:   1,
+	NoiseVariants:   0,
+	HavocVariants:   0,
 	ExploitVariants: 1,
 }
 
