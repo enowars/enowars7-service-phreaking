@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/enowars/enochecker-go"
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 )
 
@@ -19,7 +20,13 @@ func main() {
 		FullTimestamp: true,
 	})
 
-	checkerHandler := handler.New(log)
+	db := redis.NewClient(&redis.Options{
+		Addr:     "phreaking_checker-phreaking-db-1:6379",
+		Password: string(os.Getenv("REDIS_PASS")),
+		DB:       0, // use default DB
+	})
+
+	checkerHandler := handler.New(log, db)
 	server := &http.Server{
 		Addr:    ":3303",
 		Handler: enochecker.NewChecker(log, checkerHandler),
