@@ -39,7 +39,6 @@ func handleConnection(c net.Conn) {
 			buf, err := io.RecvMsg(c)
 			if err != nil {
 				fmt.Printf("Error reading: %#v\n", err)
-				c.Close()
 				return
 			}
 
@@ -50,18 +49,21 @@ func handleConnection(c net.Conn) {
 				err := u.HandleNASAuthRequest(c, buf[1:])
 				if err != nil {
 					fmt.Printf("Error: %s", err)
+					return
 				}
 				u.ToState(ue.Authentication)
 			case msgType == ngap.NASSecurityModeCommand && u.InState(ue.Authentication):
 				err := u.HandleNASSecurityModeCommand(c, buf[1:])
 				if err != nil {
 					fmt.Printf("Error: %s", err)
+					return
 				}
 				u.ToState(ue.SecurityMode)
 			case msgType == ngap.PDUSessionEstAccept && u.InState(ue.SecurityMode):
 				err := u.HandlePDUSessionEstAccept(c, buf[1:])
 				if err != nil {
 					fmt.Printf("Error: %s", err)
+					return
 				}
 				u.ToState(ue.Registered)
 			default:

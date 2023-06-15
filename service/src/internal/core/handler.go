@@ -301,9 +301,14 @@ func (amf *Amf) handleInitUEMessage(c net.Conn, buf []byte, amfg *AmfGNB) error 
 	randToken := make([]byte, 32)
 	rand.Read(randToken)
 
+	authRand := make([]byte, 32)
+	rand.Read(authRand)
+
+	auth := crypto.IA2(authRand)
+
 	ue.RandToken = randToken
 
-	authReq := ngap.NASAuthRequestMsg{SecHeader: 0, Rand: ue.RandToken}
+	authReq := ngap.NASAuthRequestMsg{SecHeader: 0, Rand: ue.RandToken, AuthRand: authRand, Auth: auth}
 
 	authReqbuf, err := ngap.EncodeMsg(ngap.NASAuthRequest, &authReq)
 	if err != nil {

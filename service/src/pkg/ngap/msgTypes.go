@@ -102,6 +102,8 @@ type NASRegRequestMsg struct {
 type NASAuthRequestMsg struct {
 	SecHeader uint8
 	Rand      []byte
+	AuthRand  []byte
+	Auth      []byte
 }
 
 type NASAuthResponseMsg struct {

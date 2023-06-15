@@ -141,6 +141,10 @@ func (u *UE) HandleNASAuthRequest(c net.Conn, msgbuf []byte) error {
 		return errors.New("cannot decode!")
 	}
 
+	if !(string(crypto.IA2(msg.AuthRand)) == string(msg.Auth)) {
+		return errors.New("cannot authenticate core!")
+	}
+
 	res := crypto.IA2(msg.Rand)
 
 	authRes := ngap.NASAuthResponseMsg{SecHeader: 0, Res: res}
