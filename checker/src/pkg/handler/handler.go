@@ -54,7 +54,7 @@ func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) 
 
 	c := pb.NewLocationClient(conn)
 
-	md := metadata.Pairs("auth", string(os.Getenv("GRPC_PASS")))
+	md := metadata.Pairs("auth", string(os.Getenv("PHREAKING_GRPC_PASS")))
 	ctx_grpc := metadata.NewOutgoingContext(context.Background(), md)
 	_, err = c.UpdateLocation(ctx_grpc, &pb.Loc{Position: message.Flag})
 	if err != nil {

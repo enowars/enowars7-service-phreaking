@@ -7,7 +7,7 @@ services:
     ports:
       - "3399:3399"
     environment:
-      - SIM_KEY=${SIM_KEY}
+      - PHREAKING_SIM_KEY=${PHREAKING_SIM_KEY}
   phreaking-ue-0:
     build:
       context: .
@@ -18,8 +18,8 @@ services:
     volumes:
       - ./data/ue0:/service/data:rw
     environment:
-      - GRPC_PASS=${GRPC_PASS}
-      - SIM_KEY=${SIM_KEY}
+      - PHREAKING_GRPC_PASS=${PHREAKING_GRPC_PASS}
+      - PHREAKING_SIM_KEY=${PHREAKING_SIM_KEY}
   phreaking-ue-1:
     build:
       context: .
@@ -30,8 +30,8 @@ services:
     volumes:
       - ./data/ue1:/service/data:rw
     environment:
-      - GRPC_PASS=${GRPC_PASS}
-      - SIM_KEY=${SIM_KEY}
+      - PHREAKING_GRPC_PASS=${PHREAKING_GRPC_PASS}
+      - PHREAKING_SIM_KEY=${PHREAKING_SIM_KEY}
   phreaking-ue-2:
     build:
       context: .
@@ -42,8 +42,8 @@ services:
     volumes:
       - ./data/ue2:/service/data:rw
     environment:
-      - GRPC_PASS=${GRPC_PASS}
-      - SIM_KEY=${SIM_KEY}
+      - PHREAKING_GRPC_PASS=${PHREAKING_GRPC_PASS}
+      - PHREAKING_SIM_KEY=${PHREAKING_SIM_KEY}
   phreaking-ue-3:
     build:
       context: .
@@ -54,8 +54,8 @@ services:
     volumes:
       - ./data/ue3:/service/data:rw
     environment:
-      - GRPC_PASS=${GRPC_PASS}
-      - SIM_KEY=${SIM_KEY}
+      - PHREAKING_GRPC_PASS=${PHREAKING_GRPC_PASS}
+      - PHREAKING_SIM_KEY=${PHREAKING_SIM_KEY}
   phreaking-ue-4:
     build:
       context: .
@@ -66,8 +66,8 @@ services:
     volumes:
       - ./data/ue4:/service/data:rw
     environment:
-      - GRPC_PASS=${GRPC_PASS}
-      - SIM_KEY=${SIM_KEY}
+      - PHREAKING_GRPC_PASS=${PHREAKING_GRPC_PASS}
+      - PHREAKING_SIM_KEY=${PHREAKING_SIM_KEY}
   phreaking-ue-5:
     build:
       context: .
@@ -78,8 +78,8 @@ services:
     volumes:
       - ./data/ue5:/service/data:rw
     environment:
-      - GRPC_PASS=${GRPC_PASS}
-      - SIM_KEY=${SIM_KEY}
+      - PHREAKING_GRPC_PASS=${PHREAKING_GRPC_PASS}
+      - PHREAKING_SIM_KEY=${PHREAKING_SIM_KEY}
   phreaking-ue-6:
     build:
       context: .
@@ -90,8 +90,8 @@ services:
     volumes:
       - ./data/ue6:/service/data:rw
     environment:
-      - GRPC_PASS=${GRPC_PASS}
-      - SIM_KEY=${SIM_KEY}
+      - PHREAKING_GRPC_PASS=${PHREAKING_GRPC_PASS}
+      - PHREAKING_SIM_KEY=${PHREAKING_SIM_KEY}
   phreaking-ue-7:
     build:
       context: .
@@ -102,8 +102,8 @@ services:
     volumes:
       - ./data/ue7:/service/data:rw
     environment:
-      - GRPC_PASS=${GRPC_PASS}
-      - SIM_KEY=${SIM_KEY}
+      - PHREAKING_GRPC_PASS=${PHREAKING_GRPC_PASS}
+      - PHREAKING_SIM_KEY=${PHREAKING_SIM_KEY}
   phreaking-ue-8:
     build:
       context: .
@@ -114,8 +114,8 @@ services:
     volumes:
       - ./data/ue8:/service/data:rw
     environment:
-      - GRPC_PASS=${GRPC_PASS}
-      - SIM_KEY=${SIM_KEY}
+      - PHREAKING_GRPC_PASS=${PHREAKING_GRPC_PASS}
+      - PHREAKING_SIM_KEY=${PHREAKING_SIM_KEY}
   phreaking-ue-9:
     build:
       context: .
@@ -126,5 +126,5 @@ services:
     volumes:
       - ./data/ue9:/service/data:rw
     environment:
-      - GRPC_PASS=${GRPC_PASS}
-      - SIM_KEY=${SIM_KEY}
+      - PHREAKING_GRPC_PASS=${PHREAKING_GRPC_PASS}
+      - PHREAKING_SIM_KEY=${PHREAKING_SIM_KEY}

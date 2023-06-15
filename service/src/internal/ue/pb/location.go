@@ -38,7 +38,7 @@ func AuthInterceptor(ctx context.Context, req interface{}, _ *grpc.UnaryServerIn
 	if len(meta["auth"]) != 1 {
 		return nil, status.Error(codes.Unauthenticated, "INTERNAL_SERVER_ERROR")
 	}
-	if meta.Get("auth")[0] != string(os.Getenv("GRPC_PASS")) {
+	if meta.Get("auth")[0] != string(os.Getenv("PHREAKING_GRPC_PASS")) {
 		return nil, status.Error(codes.Unauthenticated, "WRONG SECRET")
 	}
 

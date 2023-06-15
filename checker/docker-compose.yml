@@ -7,8 +7,8 @@ services:
     ports:
       - 3303:3303
     environment:
-      - GRPC_PASS=${GRPC_PASS}
-      - SIM_KEY=${SIM_KEY}
+      - PHREAKING_GRPC_PASS=${PHREAKING_GRPC_PASS}
+      - PHREAKING_SIM_KEY=${PHREAKING_SIM_KEY}
       - REDIS_PASS=asimplesentenceisbetter
   phreaking-db:
     image: redis:7-alpine
@@ -16,4 +16,3 @@ services:
     volumes:
       - ./data:/data:rw
     command: redis-server --save 20 1 --loglevel warning --requirepass asimplesentenceisbetter
-

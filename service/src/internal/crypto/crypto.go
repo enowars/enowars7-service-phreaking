@@ -16,7 +16,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-var key = []byte(string(os.Getenv("SIM_KEY")))
+var key = []byte(string(os.Getenv("PHREAKING_SIM_KEY")))
 
 func ComputeHash(input []byte) (hash string) {
 	h := sha256.New()
