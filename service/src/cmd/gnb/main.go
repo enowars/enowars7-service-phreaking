@@ -34,20 +34,14 @@ func handleUeConnection(ueConn net.Conn) {
 				return
 			}
 
-			fmt.Printf("RegReq: %s\n", reply)
+			fmt.Println("=============================")
+			fmt.Printf("FROM UE: (NASRegRequest)\n %s\n", reply)
 
-			var reg ngap.NASRegRequestMsg
-			err = ngap.DecodeMsg(reply[1:], &reg)
-			if err != nil {
-				fmt.Println("cannot decode")
-				return
-			}
-
-			pdu, _ := ngap.EncodeMsg(ngap.NASRegRequest, &reg)
-
-			initUeMsg := ngap.InitUEMessageMsg{NasPdu: pdu, RanUeNgapId: 1}
+			initUeMsg := ngap.InitUEMessageMsg{NasPdu: reply, RanUeNgapId: 1}
 			buf, _ := ngap.EncodeMsg(ngap.InitUEMessage, &initUeMsg)
 
+			fmt.Println("=============================")
+			fmt.Printf("TO CORE: (InitUEMessage + NASRegRequest)\n %s\n", buf)
 			err = io.SendMsg(coreConn, buf)
 			if err != nil {
 				fmt.Printf("Error sending: %#v\n", err)
@@ -61,7 +55,8 @@ func handleUeConnection(ueConn net.Conn) {
 				return
 			}
 
-			fmt.Printf("AuthReq: %s\n", reply)
+			fmt.Println("=============================")
+			fmt.Printf("FROM CORE: (DownNASTrans + NASAuthRequest)\n %s\n", reply)
 
 			var down ngap.DownNASTransMsg
 			err = ngap.DecodeMsg(reply[1:], &down)
@@ -70,6 +65,8 @@ func handleUeConnection(ueConn net.Conn) {
 				return
 			}
 
+			fmt.Println("=============================")
+			fmt.Printf("TO UE: (NASAuthRequest)\n %s\n", down.NasPdu)
 			err = io.SendMsg(ueConn, down.NasPdu)
 			if err != nil {
 				fmt.Printf("Error sending: %#v\n", err)
@@ -82,10 +79,13 @@ func handleUeConnection(ueConn net.Conn) {
 				return
 			}
 
-			fmt.Printf("AuthRes: %s\n", reply)
+			fmt.Println("=============================")
+			fmt.Printf("FROM UE: (NASAuthRes)\n %s\n", reply)
+
+			amfUeNgapId := down.AmfUeNgapId
 
 			// AuthRes
-			up := ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: down.AmfUeNgapId}
+			up := ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
 			buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
 
 			err = io.SendMsg(coreConn, buf)
@@ -94,6 +94,9 @@ func handleUeConnection(ueConn net.Conn) {
 				return
 			}
 
+			fmt.Println("=============================")
+			fmt.Printf("TO CORE: (UpNASTrans + NASAuthRes)\n %s\n", buf)
+
 			// SecModeCmd
 			reply, err = io.RecvMsg(coreConn)
 			if err != nil {
@@ -101,7 +104,8 @@ func handleUeConnection(ueConn net.Conn) {
 				return
 			}
 
-			fmt.Printf("SecModeCmd: %s\n", reply)
+			fmt.Println("=============================")
+			fmt.Printf("FROM CORE: (DownNASTrans + NASSecurityModeCommand)\n %s\n", reply)
 
 			down = ngap.DownNASTransMsg{}
 
@@ -111,6 +115,8 @@ func handleUeConnection(ueConn net.Conn) {
 				return
 			}
 
+			fmt.Println("=============================")
+			fmt.Printf("TO UE: (NASSecurityModeCommand)\n %s\n", down.NasPdu)
 			err = io.SendMsg(ueConn, down.NasPdu)
 			if err != nil {
 				fmt.Printf("Error sending: %#v\n", err)
@@ -123,8 +129,108 @@ func handleUeConnection(ueConn net.Conn) {
 				fmt.Printf("Error reading: %#v\n", err)
 				return
 			}
+			fmt.Println("=============================")
+			fmt.Printf("FROM UE: (LocationUpdate)\n %s\n", reply)
 
-			fmt.Printf("LocationUpdate: %s\n", reply)
+			up = ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
+			buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
+			io.SendMsg(coreConn, buf)
+
+			fmt.Println("=============================")
+			fmt.Printf("TO CORE: (UpNASTrans + LocationUpdate)\n %s\n", buf)
+
+			// PDUSessionReq
+			reply, err = io.RecvMsg(ueConn)
+			if err != nil {
+				fmt.Printf("Error reading: %#v\n", err)
+				return
+			}
+			fmt.Println("=============================")
+			fmt.Printf("FROM UE: (PDUSessionEstRequest)\n %s\n", reply)
+
+			up = ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
+			buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
+			err = io.SendMsg(coreConn, buf)
+			if err != nil {
+				fmt.Printf("Error sending: %#v\n", err)
+				return
+			}
+			fmt.Println("=============================")
+			fmt.Printf("TO CORE: (UpNASTrans + PDUSessionEstRequest)\n %s\n", buf)
+
+			// PDUSessionAccept
+
+			reply, err = io.RecvMsg(coreConn)
+			if err != nil {
+				fmt.Printf("Error reading: %#v\n", err)
+				return
+			}
+
+			fmt.Println("=============================")
+			fmt.Printf("FROM CORE: (DownNASTrans + PDUSessionEstResponse)\n %s\n", reply)
+
+			down = ngap.DownNASTransMsg{}
+			err = ngap.DecodeMsg(reply[1:], &down)
+			if err != nil {
+				fmt.Println("cannot decode")
+				return
+			}
+
+			err = io.SendMsg(ueConn, down.NasPdu)
+			if err != nil {
+				fmt.Printf("Error sending: %#v\n", err)
+				return
+			}
+
+			fmt.Println("=============================")
+			fmt.Printf("TO UE: (PDUSessionEstResponse)\n %s\n", down.NasPdu)
+
+			// PDUReq
+
+			reply, err = io.RecvMsg(ueConn)
+			if err != nil {
+				fmt.Printf("Error reading: %#v\n", err)
+				return
+			}
+
+			fmt.Println("=============================")
+			fmt.Printf("FROM UE: (PDUReq)\n %s\n", reply)
+
+			up = ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
+			buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
+			io.SendMsg(coreConn, buf)
+
+			fmt.Println("=============================")
+			fmt.Printf("TO CORE: (UpNASTrans + PDUReq)\n %s\n", buf)
+
+			// PDURes
+
+			reply, err = io.RecvMsg(coreConn)
+			if err != nil {
+				fmt.Printf("Error reading: %#v\n", err)
+				return
+			}
+
+			fmt.Println("=============================")
+			fmt.Printf("FROM CORE: (DownNASTrans + PDURes)\n %s\n", reply)
+
+			down = ngap.DownNASTransMsg{}
+			err = ngap.DecodeMsg(reply[1:], &down)
+			if err != nil {
+				fmt.Println("cannot decode")
+				return
+			}
+
+			err = io.SendMsg(ueConn, down.NasPdu)
+			if err != nil {
+				fmt.Printf("Error sending: %#v\n", err)
+				return
+			}
+
+			fmt.Println("=============================")
+			fmt.Printf("TO UE: (PDURes)\n %s\n", down.NasPdu)
+
+			return
 		}
 	}
 
@@ -139,7 +245,8 @@ func main() {
 		}
 		defer l.Close()
 	*/
-	fmt.Println("Enter core address: <IP:PORT>")
+	fmt.Println("5Go gNB tool")
+	fmt.Println("Enter 5G core address: <IP:PORT>")
 	reader := bufio.NewReader(os.Stdin)
 	addr, err := reader.ReadString('\n')
 	addr = addr[:len(addr)-1]
@@ -164,17 +271,21 @@ func main() {
 	setup := ngap.NGSetupRequestMsg{GranId: 0, Tac: 0, Plmn: 0}
 	buf, _ := ngap.EncodeMsg(ngap.NGSetupRequest, &setup)
 
+	fmt.Println("=============================")
+	fmt.Printf("TO CORE: (NGSetupRequest)\n %s\n", buf)
 	err = io.SendMsg(coreConn, buf)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	_, err = io.RecvMsg(coreConn)
+	buf, err = io.RecvMsg(coreConn)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	fmt.Println("=============================")
+	fmt.Printf("FROM CORE: (NGSetupResponse)\n %s\n", buf)
 
 	fmt.Println("Enter UE address: <IP:PORT>")
 	reader = bufio.NewReader(os.Stdin)

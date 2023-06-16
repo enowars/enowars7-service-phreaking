@@ -3,7 +3,6 @@
 ## Known limitations
 
 - SCTP server does not work on CORE, using TCP
-- Successful PDUSessEstResponse currently does not do anything, but will allow UE to do a proxy HTTP request through gNB and CORE in the future.
 
 ## Plan
 
