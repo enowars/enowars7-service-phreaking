@@ -22,7 +22,7 @@ func EncodeMsg[T any](t MsgType, msgPtr *T) ([]byte, error) {
 	return b.Bytes(), err
 }
 
-func EncodeEncMsg[T any](t MsgType, msgPtr *T) ([]byte, error) {
+func EncodeEncMsg[T any](t MsgType, msgPtr *T, key []byte) ([]byte, error) {
 	var b bytes.Buffer
 	b.WriteByte(byte(t))
 	var be bytes.Buffer
@@ -30,7 +30,7 @@ func EncodeEncMsg[T any](t MsgType, msgPtr *T) ([]byte, error) {
 	err := e.Encode(&msgPtr)
 
 	tmp := be.Bytes()
-	tmp = crypto.EncryptAES(tmp)
+	tmp = crypto.EncryptAES(tmp, key)
 
 	b.Write(tmp)
 	return b.Bytes(), err

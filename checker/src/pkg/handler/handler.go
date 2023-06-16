@@ -54,7 +54,9 @@ func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) 
 
 	c := pb.NewLocationClient(conn)
 
-	md := metadata.Pairs("auth", string(os.Getenv("PHREAKING_GRPC_PASS")))
+	grpcEnvVar := "PHREAKING_" + strconv.Itoa(int(message.TeamId)) + "_GRPC_PASS"
+
+	md := metadata.Pairs("auth", string(os.Getenv(grpcEnvVar)))
 	ctx_grpc := metadata.NewOutgoingContext(context.Background(), md)
 	_, err = c.UpdateLocation(ctx_grpc, &pb.Loc{Position: message.Flag})
 	if err != nil {
@@ -175,7 +177,11 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 		return err
 	}
 
-	dec := crypto.DecryptAES(reply[9:])
+	keyEnvVar := "PHREAKING_" + strconv.Itoa(int(message.TeamId)) + "_SIM_KEY"
+
+	key := []byte(string(os.Getenv(keyEnvVar)))
+
+	dec := crypto.DecryptAES(reply[9:], key)
 
 	var loc ngap.LocationUpdateMsg
 	err = ngap.DecodeMsg(dec, &loc)

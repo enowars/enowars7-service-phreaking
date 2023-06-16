@@ -10,13 +10,10 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
 
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/sha3"
 )
-
-var key = []byte(string(os.Getenv("PHREAKING_SIM_KEY")))
 
 func ComputeHash(input []byte) (hash string) {
 	h := sha256.New()
@@ -25,7 +22,7 @@ func ComputeHash(input []byte) (hash string) {
 	return string(bs)
 }
 
-func EncryptAES(input []byte) (res []byte) {
+func EncryptAES(input []byte, key []byte) (res []byte) {
 	aesBlock, err := aes.NewCipher(key)
 	if err != nil {
 		fmt.Println(err)
@@ -47,7 +44,7 @@ func EncryptAES(input []byte) (res []byte) {
 	return buf
 }
 
-func DecryptAES(ct []byte) (res []byte) {
+func DecryptAES(ct []byte, key []byte) (res []byte) {
 	aesBlock, err := aes.NewCipher(key)
 	if err != nil {
 		log.Fatalln(err)
@@ -65,40 +62,40 @@ func DecryptAES(ct []byte) (res []byte) {
 	return originalText
 }
 
-func CheckIntegrity(buf []byte, mac []byte) bool {
-	dec := string(DecryptAES(mac))
+func CheckIntegrity(buf []byte, mac []byte, key []byte) bool {
+	dec := string(DecryptAES(mac, key))
 	hash := ComputeHash(buf)
 	return (dec == hash)
 }
 
-func IA0(msg []byte) (mac []byte) {
+func IA0(msg []byte, key []byte) (mac []byte) {
 	h := sha256.New()
 	h.Write(msg)
 	return h.Sum(nil)
 }
 
-func IA1(msg []byte) (mac []byte) {
+func IA1(msg []byte, key []byte) (mac []byte) {
 	hash := hmac.New(sha256.New, []byte(key))
 	hash.Write(msg)
 	return hash.Sum(nil)
 }
 
-func IA2(msg []byte) (mac []byte) {
+func IA2(msg []byte, key []byte) (mac []byte) {
 	hash := hmac.New(sha512.New, []byte(key))
 	hash.Write(msg)
 	return hash.Sum(nil)
 }
 
-func IA3(msg []byte) (mac []byte) {
+func IA3(msg []byte, key []byte) (mac []byte) {
 	hash := hmac.New(sha3.New256, []byte(key))
 	hash.Write(msg)
 	return hash.Sum(nil)
 }
 
-func IA4(msg []byte) (mac []byte) {
+func IA4(msg []byte, key []byte) (mac []byte) {
 	hash, _ := blake2b.New256(key)
 	hash.Write(msg)
 	return hash.Sum(nil)
 }
 
-var IAalg = map[uint8]func([]byte) []byte{0: IA0, 1: IA1, 2: IA2, 3: IA3, 4: IA4}
+var IAalg = map[uint8]func([]byte, []byte) []byte{0: IA0, 1: IA1, 2: IA2, 3: IA3, 4: IA4}
