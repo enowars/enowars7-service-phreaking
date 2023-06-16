@@ -11,18 +11,19 @@ func SendMsg(conn net.Conn, msg []byte) (err error) {
 	buf := make([]byte, 2)
 	buf[0] = uint8(msgLen >> 8)
 	buf[1] = uint8(msgLen & 0xff)
-	n, err := conn.Write(buf)
+	_, err = conn.Write(buf)
+	// n, err := conn.Write(buf)
 	if err != nil {
 		log.Printf("write failed: %v", err)
 		return err
 	}
-	log.Printf("write: %d", n)
-	n, err = conn.Write(msg)
+	// log.Printf("write: %d", n)
+	_, err = conn.Write(msg)
 	if err != nil {
 		log.Printf("write failed: %v", err)
 		return err
 	}
-	log.Printf("write: %d", n)
+	//log.Printf("write: %d", n)
 	return nil
 }
 
