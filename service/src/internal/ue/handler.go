@@ -20,16 +20,12 @@ var (
 	errIntegrityImp  = errors.New("integrity not implemented")
 )
 
-func (u *UE) HandlePDUSessionEstAccept(c net.Conn, msgbuf []byte) error {
-	var msg ngap.PDUSessionEstAcceptMsg
+func (u *UE) HandlePDURes(c net.Conn, msgbuf []byte) error {
+	var msg ngap.PDUResMsg
 
 	mac := msgbuf[:8]
 
 	msgbuf = msgbuf[8:]
-
-	if u.EaAlg == 1 {
-		msgbuf = crypto.DecryptAES(msgbuf)
-	}
 
 	switch {
 	case u.IaAlg == 0:
@@ -46,11 +42,73 @@ func (u *UE) HandlePDUSessionEstAccept(c net.Conn, msgbuf []byte) error {
 		return errIntegrityImp
 	}
 
+	if u.EaAlg == 1 {
+		msgbuf = crypto.DecryptAES(msgbuf)
+	}
+
 	err := ngap.DecodeMsg(msgbuf, &msg)
 	if err != nil {
 		return errDecode
 	}
 
+	fmt.Println("http response len: ", len(msg.Response))
+	return nil
+}
+
+func (u *UE) HandlePDUSessionEstAccept(c net.Conn, msgbuf []byte) error {
+	var msg ngap.PDUSessionEstAcceptMsg
+
+	mac := msgbuf[:8]
+
+	msgbuf = msgbuf[8:]
+
+	switch {
+	case u.IaAlg == 0:
+		return errNullIntegrity
+	case u.IaAlg < 5:
+		alg, ok := crypto.IAalg[u.IaAlg]
+		if !ok {
+			return errIntegrityImp
+		}
+		if !bytes.Equal(mac, alg(msgbuf)[:8]) {
+			return errIntegrity
+		}
+	default:
+		return errIntegrityImp
+	}
+
+	if u.EaAlg == 1 {
+		msgbuf = crypto.DecryptAES(msgbuf)
+	}
+
+	err := ngap.DecodeMsg(msgbuf, &msg)
+	if err != nil {
+		return errDecode
+	}
+
+	u.ActivePduId = msg.PduSesId
+
+	pduReq := ngap.PDUReqMsg{PduSesId: u.ActivePduId, Request: []byte("http://httpbin.org/html")}
+
+	pdu, err := ngap.EncodeMsgBytes(&pduReq)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	if u.EaAlg == 1 {
+		pdu = crypto.EncryptAES(pdu)
+	}
+
+	mac = crypto.IAalg[u.IaAlg](pdu)[:8]
+
+	var b bytes.Buffer
+	b.WriteByte(byte(ngap.PDUReq))
+	b.Write(mac)
+	b.Write(pdu)
+
+	pdu = b.Bytes()
+
+	io.SendMsg(c, pdu)
 	return nil
 }
 
@@ -105,13 +163,13 @@ func (u *UE) HandleNASSecurityModeCommand(c net.Conn, msgbuf []byte) error {
 
 	io.SendMsg(c, pdu)
 
-	b.Reset()
-
 	time.Sleep(500 * time.Millisecond)
+
+	b.Reset()
 
 	// PDUSessionEstRequestMsg
 
-	pduReq := ngap.PDUSessionEstRequestMsg{PduSesId: 0, PduSesType: 2}
+	pduReq := ngap.PDUSessionEstRequestMsg{PduSesId: 0, PduSesType: 0}
 
 	pdu, err = ngap.EncodeMsgBytes(&pduReq)
 	if err != nil {

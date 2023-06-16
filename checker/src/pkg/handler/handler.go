@@ -23,7 +23,7 @@ import (
 var serviceInfo = &enochecker.InfoMessage{
 	ServiceName:     "phreaking",
 	FlagVariants:    1,
-	NoiseVariants:   0,
+	NoiseVariants:   1,
 	HavocVariants:   0,
 	ExploitVariants: 1,
 }
@@ -326,20 +326,190 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 
 }
 
-var putnoisecalled []string
-
 func (h *Handler) PutNoise(ctx context.Context, message *enochecker.TaskMessage) error {
-	putnoisecalled = append(putnoisecalled, message.TaskChainId)
+	portNum := strconv.Itoa(int(message.CurrentRoundId % 10))
+	port := "606" + portNum
+	if err := h.db.Set(ctx, message.TaskChainId, port, 0).Err(); err != nil {
+		h.log.Error(err)
+		return enochecker.NewMumbleError(errors.New("not able to write taskid to db"))
+	}
 	return nil
 }
 
 func (h *Handler) GetNoise(ctx context.Context, message *enochecker.TaskMessage) error {
-	for _, i := range putnoisecalled {
-		if i == message.TaskChainId {
-			return nil
-		}
+	port, err := h.db.Get(ctx, message.TaskChainId).Result()
+	if err != nil {
+		return enochecker.NewMumbleError(errors.New("put flag was not called beforehand"))
 	}
-	return enochecker.NewMumbleError(errors.New("put flag was not called beforehand"))
+	return h.gnb(ctx, message, port)
+}
+
+func (h *Handler) gnb(ctx context.Context, message *enochecker.TaskMessage, port string) error {
+	coretcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":3399")
+	if err != nil {
+		return err
+	}
+
+	coreConn, err := net.DialTCP("tcp", nil, coretcpAddr)
+	if err != nil {
+		return err
+	}
+
+	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
+	if err != nil {
+		return err
+	}
+
+	ueConn, err := net.DialTCP("tcp", nil, uetcpAddr)
+	if err != nil {
+		return err
+	}
+
+	setup := ngap.NGSetupRequestMsg{GranId: 0, Tac: 0, Plmn: 0}
+	buf, _ := ngap.EncodeMsg(ngap.NGSetupRequest, &setup)
+
+	err = io.SendMsg(coreConn, buf)
+	if err != nil {
+		return err
+	}
+
+	reply, err := io.RecvMsg(coreConn)
+	if err != nil {
+		return err
+	}
+
+	reply, err = io.RecvMsg(ueConn)
+	if err != nil {
+		return err
+	}
+
+	initUeMsg := ngap.InitUEMessageMsg{NasPdu: reply, RanUeNgapId: 1}
+	buf, _ = ngap.EncodeMsg(ngap.InitUEMessage, &initUeMsg)
+
+	err = io.SendMsg(coreConn, buf)
+	if err != nil {
+		return err
+	}
+
+	// AuthReq
+	reply, err = io.RecvMsg(coreConn)
+	if err != nil {
+		return err
+	}
+
+	var down ngap.DownNASTransMsg
+	err = ngap.DecodeMsg(reply[1:], &down)
+	if err != nil {
+		return errors.New("cannot decode")
+	}
+
+	err = io.SendMsg(ueConn, down.NasPdu)
+	if err != nil {
+		return err
+	}
+
+	reply, err = io.RecvMsg(ueConn)
+	if err != nil {
+		return err
+	}
+
+	amfUeNgapId := down.AmfUeNgapId
+
+	// AuthRes
+	up := ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
+	buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
+
+	err = io.SendMsg(coreConn, buf)
+	if err != nil {
+		return err
+	}
+
+	// SecModeCmd
+	reply, err = io.RecvMsg(coreConn)
+	if err != nil {
+		return err
+	}
+
+	down = ngap.DownNASTransMsg{}
+
+	err = ngap.DecodeMsg(reply[1:], &down)
+	if err != nil {
+		return errors.New("cannot decode")
+	}
+
+	err = io.SendMsg(ueConn, down.NasPdu)
+	if err != nil {
+		return err
+	}
+
+	// LocationUpdate
+	reply, err = io.RecvMsg(ueConn)
+	if err != nil {
+		return err
+	}
+
+	up = ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
+	buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
+	io.SendMsg(coreConn, buf)
+
+	// PDUSessionReq
+	reply, err = io.RecvMsg(ueConn)
+	if err != nil {
+		return err
+	}
+
+	up = ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
+	buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
+	io.SendMsg(coreConn, buf)
+
+	// PDUSessionAccept
+
+	reply, err = io.RecvMsg(coreConn)
+	if err != nil {
+		return err
+	}
+
+	down = ngap.DownNASTransMsg{}
+	err = ngap.DecodeMsg(reply[1:], &down)
+	if err != nil {
+		return errors.New("cannot decode")
+	}
+
+	err = io.SendMsg(ueConn, down.NasPdu)
+	if err != nil {
+		return err
+	}
+
+	// PDUReq
+
+	reply, err = io.RecvMsg(ueConn)
+	if err != nil {
+		return err
+	}
+
+	up = ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
+	buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
+	io.SendMsg(coreConn, buf)
+
+	// PDURes
+
+	reply, err = io.RecvMsg(coreConn)
+	if err != nil {
+		return err
+	}
+
+	down = ngap.DownNASTransMsg{}
+	err = ngap.DecodeMsg(reply[1:], &down)
+	if err != nil {
+		return errors.New("cannot decode")
+	}
+
+	err = io.SendMsg(ueConn, down.NasPdu)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (h *Handler) Havoc(ctx context.Context, message *enochecker.TaskMessage) error {
