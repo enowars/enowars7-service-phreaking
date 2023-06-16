@@ -96,6 +96,11 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 		return err
 	}
 
+	defer func() {
+		coreConn.Close()
+		ueConn.Close()
+	}()
+
 	setup := ngap.NGSetupRequestMsg{GranId: 0, Tac: 0, Plmn: 0}
 	buf, _ := ngap.EncodeMsg(ngap.NGSetupRequest, &setup)
 
@@ -230,6 +235,11 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 	if err != nil {
 		return nil, err
 	}
+
+	defer func() {
+		coreConn.Close()
+		ueConn.Close()
+	}()
 
 	setup := ngap.NGSetupRequestMsg{GranId: 0, Tac: 0, Plmn: 0}
 	buf, _ := ngap.EncodeMsg(ngap.NGSetupRequest, &setup)
@@ -370,6 +380,11 @@ func (h *Handler) gnb(ctx context.Context, message *enochecker.TaskMessage, port
 	if err != nil {
 		return err
 	}
+
+	defer func() {
+		coreConn.Close()
+		ueConn.Close()
+	}()
 
 	setup := ngap.NGSetupRequestMsg{GranId: 0, Tac: 0, Plmn: 0}
 	buf, _ := ngap.EncodeMsg(ngap.NGSetupRequest, &setup)
