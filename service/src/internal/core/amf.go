@@ -29,4 +29,5 @@ type AmfUE struct {
 	Authenticated bool
 	RandToken     []byte
 	Locations     []string
+	PDUs          map[uint8]uint8
 }

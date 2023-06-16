@@ -66,6 +66,12 @@ func handleConnection(c net.Conn) {
 					return
 				}
 				u.ToState(ue.Registered)
+			case msgType == ngap.PDURes && u.InState(ue.Registered):
+				err := u.HandlePDURes(c, buf[1:])
+				if err != nil {
+					fmt.Printf("Error: %s", err)
+					return
+				}
 			default:
 				fmt.Println("invalid message type for UE")
 			}

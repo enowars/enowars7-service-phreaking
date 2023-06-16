@@ -1,11 +1,14 @@
 package ue
 
+import "fmt"
+
 type UE struct {
 	state StateType
 	//MobileId ngap.MobileIdType
 	//SecCap   ngap.SecCapType
-	EaAlg uint8
-	IaAlg uint8
+	EaAlg       uint8
+	IaAlg       uint8
+	ActivePduId uint8
 }
 
 func NewUE() *UE {
@@ -17,6 +20,7 @@ func (u *UE) GetState(s StateType) StateType {
 }
 
 func (u *UE) ToState(s StateType) {
+	fmt.Println("To state: ", s)
 	u.state = s
 }
 

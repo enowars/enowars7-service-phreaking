@@ -28,6 +28,8 @@ const (
 	RegisterComplete
 	PDUSessionEstRequest
 	PDUSessionEstAccept
+	PDUReq
+	PDURes
 	PDUSessionResourceReleaseCommand
 	// Location
 	LocationUpdate
@@ -125,8 +127,8 @@ type PDUSessionEstRequestMsg struct {
 }
 
 type PDUSessionEstAcceptMsg struct {
-	PduSesId   uint8
-	PduAddress []byte
+	PduSesId uint8
+	// PduAddress []byte
 	// SSC
 	// QoS
 	// AMBR
@@ -145,4 +147,13 @@ type LocationReportResponseMsg struct {
 	AmfUeNgapId AmfUeNgapIdType
 	RanUeNgapId uint32
 	Locations   []string
+}
+
+type PDUReqMsg struct {
+	PduSesId uint8
+	Request  []byte
+}
+type PDUResMsg struct {
+	PduSesId uint8
+	Response []byte
 }
