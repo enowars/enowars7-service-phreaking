@@ -237,16 +237,8 @@ func handleUeConnection(ueConn net.Conn) {
 }
 
 func main() {
-	/*
-		l, err := net.Listen("tcp4", ":9003")
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		defer l.Close()
-	*/
-	fmt.Println("5Go gNB tool")
-	fmt.Println("Enter 5G core address: <IP:PORT>")
+	fmt.Println("5Go gNB tool - your friendly fake basestation")
+	fmt.Println("Enter 5Go CORE address: <IP:PORT>")
 	reader := bufio.NewReader(os.Stdin)
 	addr, err := reader.ReadString('\n')
 	addr = addr[:len(addr)-1]
@@ -287,7 +279,7 @@ func main() {
 	fmt.Println("=============================")
 	fmt.Printf("FROM CORE: (NGSetupResponse)\n %s\n", buf)
 
-	fmt.Println("Enter UE address: <IP:PORT>")
+	fmt.Println("Enter 5Go UE address: <IP:PORT>")
 	reader = bufio.NewReader(os.Stdin)
 	addr, err = reader.ReadString('\n')
 	addr = addr[:len(addr)-1]
@@ -309,15 +301,4 @@ func main() {
 	}
 
 	handleUeConnection(ueConn)
-
-	/*
-		for {
-			c, err := l.Accept()
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			go handleUeConnection(c)
-		}
-	*/
 }
