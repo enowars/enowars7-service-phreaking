@@ -2,8 +2,11 @@ package io
 
 import (
 	"errors"
+	"io"
 	"net"
 )
+
+var EOF error = io.EOF
 
 func SendMsg(conn net.Conn, msg []byte) (err error) {
 	msgLen := uint16(len(msg))

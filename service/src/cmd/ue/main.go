@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"phreaking/internal/io"
@@ -29,7 +30,7 @@ func handleConnection(logger *zap.Logger, c net.Conn) {
 
 	err := sendRegistrationRequest(c)
 	if err != nil {
-		log.Errorf("Error: %s", err)
+		log.Error(err)
 		return
 	}
 
@@ -43,7 +44,9 @@ func handleConnection(logger *zap.Logger, c net.Conn) {
 		default:
 			buf, err := io.RecvMsg(c)
 			if err != nil {
-				log.Errorf("Error reading: %v", err)
+				if !errors.Is(err, io.EOF) {
+					log.Errorf("Error reading: %w", err)
+				}
 				return
 			}
 
@@ -58,28 +61,28 @@ func handleConnection(logger *zap.Logger, c net.Conn) {
 			case msgType == ngap.NASAuthRequest && u.InState(ue.RegistrationInitiated):
 				err := u.HandleNASAuthRequest(c, buf[1:])
 				if err != nil {
-					log.Errorf("Error: %s", err)
+					log.Errorf("Error NASAuthRequest: %w", err)
 					return
 				}
 				u.ToState(ue.Authentication)
 			case msgType == ngap.NASSecurityModeCommand && u.InState(ue.Authentication):
 				err := u.HandleNASSecurityModeCommand(c, buf[1:])
 				if err != nil {
-					log.Errorf("Error: %s", err)
+					log.Errorf("Error NASSecurityModeCommand: %w", err)
 					return
 				}
 				u.ToState(ue.SecurityMode)
 			case msgType == ngap.PDUSessionEstAccept && u.InState(ue.SecurityMode):
 				err := u.HandlePDUSessionEstAccept(c, buf[1:])
 				if err != nil {
-					log.Errorf("Error: %s", err)
+					log.Errorf("Error PDUSessionEstAccept", err)
 					return
 				}
 				u.ToState(ue.Registered)
 			case msgType == ngap.PDURes && u.InState(ue.Registered):
 				err := u.HandlePDURes(c, buf[1:])
 				if err != nil {
-					log.Errorf("Error: %s", err)
+					log.Errorf("Eroor PDURes: %w", err)
 					return
 				}
 			default:

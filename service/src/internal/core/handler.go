@@ -47,7 +47,9 @@ func (amf *Amf) HandleConnection(c net.Conn) {
 		default:
 			buf, err := io.RecvMsg(c)
 			if err != nil {
-				log.Errorf("Error reading: %v", err)
+				if !errors.Is(err, io.EOF) {
+					log.Errorf("Error reading: %w", err)
+				}
 				return
 			}
 
@@ -55,17 +57,17 @@ func (amf *Amf) HandleConnection(c net.Conn) {
 			if msgType == ngap.NGSetupRequest && amfg == nil {
 				amfg, err = amf.handleNGSetupRequest(c, buf[1:])
 				if err != nil {
-					log.Errorf("Error creating gNB %v", err)
+					log.Errorf("Error creating gNB %w", err)
 					return
 				}
 			} else if amfg != nil {
 				err = amf.HandleNGAP(c, buf, amfg)
 				if err != nil {
-					log.Errorf("Error NGAP: %v", err)
+					log.Errorf("Error NGAP: %w", err)
 					return
 				}
 			} else {
-				log.Errorln("Error gNB connection\n")
+				log.Errorln("Error gNB connection")
 				return
 			}
 		}
