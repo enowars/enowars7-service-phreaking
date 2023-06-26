@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"fmt"
 	"net"
 	"os"
 	"phreaking/internal/crypto"
@@ -51,7 +50,7 @@ func (u *UE) HandlePDURes(c net.Conn, msgbuf []byte) error {
 		return errDecode
 	}
 
-	fmt.Println("http response len: ", len(msg.Response))
+	u.Logger.Sugar().Debugf("http response len: %d", len(msg.Response))
 	return nil
 }
 
@@ -92,7 +91,7 @@ func (u *UE) HandlePDUSessionEstAccept(c net.Conn, msgbuf []byte) error {
 
 	pdu, err := ngap.EncodeMsgBytes(&pduReq)
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
 
 	if u.EaAlg == 1 {
@@ -108,15 +107,14 @@ func (u *UE) HandlePDUSessionEstAccept(c net.Conn, msgbuf []byte) error {
 
 	pdu = b.Bytes()
 
-	io.SendMsg(c, pdu)
-	return nil
+	return io.SendMsg(c, pdu)
 }
 
 func (u *UE) HandleNASSecurityModeCommand(c net.Conn, msgbuf []byte) error {
 	var msg ngap.NASSecurityModeCommandMsg
 	err := ngap.DecodeMsg(msgbuf, &msg)
 	if err != nil {
-		return errors.New("cannot decode!")
+		return errors.New("cannot decode")
 	}
 
 	u.EaAlg = msg.EaAlg
@@ -127,9 +125,8 @@ func (u *UE) HandleNASSecurityModeCommand(c net.Conn, msgbuf []byte) error {
 	location := ""
 
 	readFile, err := os.Open("/service/data/location.data")
-
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
 	fileScanner := bufio.NewScanner(readFile)
 
@@ -145,7 +142,7 @@ func (u *UE) HandleNASSecurityModeCommand(c net.Conn, msgbuf []byte) error {
 
 	pdu, err := ngap.EncodeMsgBytes(&pduLoc)
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
 
 	if u.EaAlg == 1 {
@@ -161,7 +158,10 @@ func (u *UE) HandleNASSecurityModeCommand(c net.Conn, msgbuf []byte) error {
 
 	pdu = b.Bytes()
 
-	io.SendMsg(c, pdu)
+	err = io.SendMsg(c, pdu)
+	if err != nil {
+		return err
+	}
 
 	time.Sleep(500 * time.Millisecond)
 
@@ -173,7 +173,7 @@ func (u *UE) HandleNASSecurityModeCommand(c net.Conn, msgbuf []byte) error {
 
 	pdu, err = ngap.EncodeMsgBytes(&pduReq)
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
 
 	if u.EaAlg == 1 {
@@ -188,19 +188,18 @@ func (u *UE) HandleNASSecurityModeCommand(c net.Conn, msgbuf []byte) error {
 
 	pdu = b.Bytes()
 
-	io.SendMsg(c, pdu)
-	return nil
+	return io.SendMsg(c, pdu)
 }
 
 func (u *UE) HandleNASAuthRequest(c net.Conn, msgbuf []byte) error {
 	var msg ngap.NASAuthRequestMsg
 	err := ngap.DecodeMsg(msgbuf, &msg)
 	if err != nil {
-		return errors.New("cannot decode!")
+		return errors.New("cannot decode")
 	}
 
 	if !(string(crypto.IA2(msg.AuthRand)) == string(msg.Auth)) {
-		return errors.New("cannot authenticate core!")
+		return errors.New("cannot authenticate core")
 	}
 
 	res := crypto.IA2(msg.Rand)
@@ -208,6 +207,5 @@ func (u *UE) HandleNASAuthRequest(c net.Conn, msgbuf []byte) error {
 	authRes := ngap.NASAuthResponseMsg{SecHeader: 0, Res: res}
 	pdu, _ := ngap.EncodeMsg(ngap.NASAuthResponse, &authRes)
 
-	io.SendMsg(c, pdu)
-	return nil
+	return io.SendMsg(c, pdu)
 }

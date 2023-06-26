@@ -239,8 +239,6 @@ func handlePDUReq(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error {
 func handleLocationUpdate(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error {
 	var msg ngap.LocationUpdateMsg
 
-	fmt.Println(ue)
-
 	if !ue.Authenticated {
 		return errNotAuth
 	}
