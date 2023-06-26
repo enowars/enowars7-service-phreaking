@@ -18,14 +18,14 @@ func handleConnection(logger *zap.Logger, c net.Conn) {
 	log := logger.Sugar()
 	log.Infof("Serving %s", c.RemoteAddr().String())
 
-	u := *ue.NewUE(logger)
-
 	timeout := time.NewTimer(time.Minute)
 	defer func() {
 		timeout.Stop()
 		c.Close()
 		log.Infof("Closed connection for remote: %s", c.RemoteAddr().String())
 	}()
+
+	u := *ue.NewUE(logger)
 
 	err := sendRegistrationRequest(c)
 	if err != nil {

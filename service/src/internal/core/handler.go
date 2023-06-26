@@ -11,6 +11,7 @@ import (
 	"phreaking/internal/crypto"
 	"phreaking/internal/io"
 	"phreaking/pkg/ngap"
+	"time"
 
 	"github.com/gofrs/uuid"
 )
@@ -26,36 +27,47 @@ var (
 )
 
 func (amf *Amf) HandleConnection(c net.Conn) {
-	fmt.Printf("Serving %s\n", c.RemoteAddr().String())
+	log := amf.Logger.Sugar()
+	log.Infof("Serving %s", c.RemoteAddr().String())
+
+	timeout := time.NewTimer(time.Minute)
+	defer func() {
+		timeout.Stop()
+		c.Close()
+		log.Infof("Closed connection for remote: %s", c.RemoteAddr().String())
+	}()
 
 	var amfg *AmfGNB
 
 	for {
-
-		buf, err := io.RecvMsg(c)
-		if err != nil {
-			fmt.Printf("Error reading: %#v\n", err)
-			c.Close()
+		select {
+		case <-timeout.C:
+			log.Infof("HandleConnection timeout for remote: %s", c.RemoteAddr().String())
 			return
-		}
-
-		msgType := ngap.MsgType(buf[0])
-		if msgType == ngap.NGSetupRequest && amfg == nil {
-			amfg, err = amf.handleNGSetupRequest(c, buf[1:])
+		default:
+			buf, err := io.RecvMsg(c)
 			if err != nil {
-				fmt.Printf("Error creating gNB\n")
-				c.Close()
+				log.Errorf("Error reading: %v", err)
 				return
 			}
-		} else if amfg != nil {
-			err = amf.HandleNGAP(c, buf, amfg)
-			if err != nil {
-				fmt.Println(err)
+
+			msgType := ngap.MsgType(buf[0])
+			if msgType == ngap.NGSetupRequest && amfg == nil {
+				amfg, err = amf.handleNGSetupRequest(c, buf[1:])
+				if err != nil {
+					log.Errorf("Error creating gNB %v", err)
+					return
+				}
+			} else if amfg != nil {
+				err = amf.HandleNGAP(c, buf, amfg)
+				if err != nil {
+					log.Errorf("Error NGAP: %v", err)
+					return
+				}
+			} else {
+				log.Errorln("Error gNB connection\n")
+				return
 			}
-		} else {
-			fmt.Printf("Error gNB connection\n")
-			c.Close()
-			break
 		}
 	}
 }
@@ -79,8 +91,7 @@ func (amf *Amf) handleNGSetupRequest(c net.Conn, buf []byte) (*AmfGNB, error) {
 		return nil, errEncode
 	}
 
-	io.SendMsg(c, []byte(bytesRes))
-	return amfg, nil
+	return amfg, io.SendMsg(c, []byte(bytesRes))
 }
 
 func (amf *Amf) HandleNGAP(c net.Conn, buf []byte, amfg *AmfGNB) error {
@@ -101,7 +112,7 @@ func (amf *Amf) HandleNGAP(c net.Conn, buf []byte, amfg *AmfGNB) error {
 		}
 
 	default:
-		return errors.New("invalid message type for NGAP (non NAS-PDU)")
+		return fmt.Errorf("invalid message type (%d) for NGAP (non NAS-PDU)", msgType)
 	}
 	return nil
 }
@@ -115,37 +126,37 @@ func (amf *Amf) handleUpNASTrans(c net.Conn, buf []byte, amfg *AmfGNB) error {
 
 	ue, ok := amfg.AmfUEs[msg.AmfUeNgapId]
 	if ok {
-		err = handleNASPDU(c, msg.NasPdu, amfg, &ue)
+		err = amf.handleNASPDU(c, msg.NasPdu, amfg, &ue)
 		if err != nil {
 			return err
 		}
 		amfg.AmfUEs[msg.AmfUeNgapId] = ue
 		return nil
 	}
-	return errors.New("Cannot find NG for AmfUeNgapId")
+	return errors.New("cannot find NG for AmfUeNgapId")
 }
 
-func handleNASPDU(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error {
+func (amf *Amf) handleNASPDU(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error {
 	msgType := ngap.MsgType(buf[0])
 
 	switch msgType {
 	case ngap.NASAuthResponse:
-		err := handleNASAuthResponse(c, buf[1:], amfg, ue)
+		err := amf.handleNASAuthResponse(c, buf[1:], amfg, ue)
 		if err != nil {
 			return err
 		}
 	case ngap.PDUSessionEstRequest:
-		err := handlePDUSessionEstRequest(c, buf[1:], amfg, ue)
+		err := amf.handlePDUSessionEstRequest(c, buf[1:], amfg, ue)
 		if err != nil {
 			return err
 		}
 	case ngap.LocationUpdate:
-		err := handleLocationUpdate(c, buf[1:], amfg, ue)
+		err := amf.handleLocationUpdate(c, buf[1:], amfg, ue)
 		if err != nil {
 			return err
 		}
 	case ngap.PDUReq:
-		err := handlePDUReq(c, buf[1:], amfg, ue)
+		err := amf.handlePDUReq(c, buf[1:], amfg, ue)
 		if err != nil {
 			return err
 		}
@@ -155,7 +166,7 @@ func handleNASPDU(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error {
 	return nil
 }
 
-func handlePDUReq(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error {
+func (amf *Amf) handlePDUReq(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error {
 	var msg ngap.PDUReqMsg
 
 	if !ue.Authenticated {
@@ -208,7 +219,7 @@ func handlePDUReq(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error {
 
 		pdu, err := ngap.EncodeMsgBytes(&resMsg)
 		if err != nil {
-			fmt.Println(err)
+			return err
 		}
 
 		if ue.EaAlg == 1 {
@@ -227,7 +238,7 @@ func handlePDUReq(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error {
 		down := ngap.DownNASTransMsg{NasPdu: pdu, RanUeNgapId: ue.RanUeNgapId, AmfUeNgapId: ue.AmfUeNgapId}
 		buf, err = ngap.EncodeMsg(ngap.DownNASTrans, &down)
 		if err != nil {
-			fmt.Println(err)
+			return err
 		}
 
 		return io.SendMsg(c, buf)
@@ -236,7 +247,7 @@ func handlePDUReq(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error {
 	}
 }
 
-func handleLocationUpdate(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error {
+func (amf *Amf) handleLocationUpdate(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error {
 	var msg ngap.LocationUpdateMsg
 
 	if !ue.Authenticated {
@@ -271,11 +282,10 @@ func handleLocationUpdate(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error
 	}
 
 	ue.Locations = append(ue.Locations, msg.Location)
-	fmt.Println(ue.Locations)
 	return nil
 }
 
-func handlePDUSessionEstRequest(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error {
+func (amf *Amf) handlePDUSessionEstRequest(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error {
 	var msg ngap.PDUSessionEstRequestMsg
 
 	if !ue.Authenticated {
@@ -300,8 +310,6 @@ func handlePDUSessionEstRequest(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE)
 		return errIntegrityImp
 	}
 
-	fmt.Println("Integrity check successfull")
-
 	if ue.EaAlg == 1 {
 		buf = crypto.DecryptAES(buf)
 	}
@@ -317,7 +325,7 @@ func handlePDUSessionEstRequest(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE)
 
 	pdu, err := ngap.EncodeMsgBytes(&pduAcc)
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
 
 	if ue.EaAlg == 1 {
@@ -336,7 +344,7 @@ func handlePDUSessionEstRequest(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE)
 	down := ngap.DownNASTransMsg{NasPdu: pdu, RanUeNgapId: ue.RanUeNgapId, AmfUeNgapId: ue.AmfUeNgapId}
 	buf, err = ngap.EncodeMsg(ngap.DownNASTrans, &down)
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
 
 	return io.SendMsg(c, buf)
@@ -419,7 +427,7 @@ func (amf *Amf) handleInitUEMessage(c net.Conn, buf []byte, amfg *AmfGNB) error 
 	return io.SendMsg(c, downBuf)
 }
 
-func handleNASAuthResponse(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error {
+func (amf *Amf) handleNASAuthResponse(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error {
 	var msg ngap.NASAuthResponseMsg
 	err := ngap.DecodeMsg(buf, &msg)
 	if err != nil {
@@ -432,7 +440,8 @@ func handleNASAuthResponse(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) erro
 	if hkres != hres {
 		return errAuth
 	}
-	fmt.Println("AUTHENTICATION SUCCESSFULL")
+
+	amf.Logger.Sugar().Infoln("AUTHENTICATION SUCCESSFULL")
 	ue.Authenticated = true
 
 	// TODO choose best EA/IA

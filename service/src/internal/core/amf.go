@@ -2,9 +2,12 @@ package core
 
 import (
 	"phreaking/pkg/ngap"
+
+	"go.uber.org/zap"
 )
 
 type Amf struct {
+	Logger      *zap.Logger
 	AmfName     string
 	GuamPlmn    uint32
 	AmfRegionId uint16
