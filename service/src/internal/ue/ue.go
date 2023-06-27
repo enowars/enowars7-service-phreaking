@@ -1,8 +1,6 @@
 package ue
 
 import (
-	"fmt"
-
 	"go.uber.org/zap"
 )
 
@@ -25,7 +23,7 @@ func (u *UE) GetState(s StateType) StateType {
 }
 
 func (u *UE) ToState(s StateType) {
-	fmt.Println("To state: ", s)
+	u.Logger.Sugar().Debugf("To state: %s", s)
 	u.state = s
 }
 
