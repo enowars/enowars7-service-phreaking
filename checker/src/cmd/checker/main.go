@@ -21,7 +21,7 @@ func main() {
 	})
 
 	db := redis.NewClient(&redis.Options{
-		Addr:     "phreaking_checker-phreaking-db-1:6379",
+		Addr:     "phreaking-db:6379",
 		Password: string(os.Getenv("REDIS_PASS")),
 		DB:       0, // use default DB
 	})
