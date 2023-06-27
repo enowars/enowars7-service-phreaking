@@ -1,8 +1,8 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"log"
 	"net"
 	"phreaking/internal/io"
 	"phreaking/internal/ue"
@@ -10,22 +10,28 @@ import (
 	"phreaking/pkg/ngap"
 	"time"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
-func handleConnection(c net.Conn) {
-	u := *ue.NewUE()
+func handleConnection(logger *zap.Logger, c net.Conn) {
+	log := logger.Sugar()
+	log.Infof("Serving %s", c.RemoteAddr().String())
 
 	timeout := time.NewTimer(time.Minute)
 	defer func() {
 		timeout.Stop()
 		c.Close()
+		log.Infof("Closed connection for remote: %s", c.RemoteAddr().String())
 	}()
+
+	u := *ue.NewUE(logger)
 
 	err := sendRegistrationRequest(c)
 	if err != nil {
-		fmt.Printf("Error: %s", err)
+		log.Error(err)
+		return
 	}
 
 	u.ToState(ue.RegistrationInitiated)
@@ -33,12 +39,19 @@ func handleConnection(c net.Conn) {
 	for {
 		select {
 		case <-timeout.C:
-			log.Println("handleConnection run for more than a minute.")
+			log.Infof("handleConnection timeout for remote: %s", c.RemoteAddr().String())
 			return
 		default:
 			buf, err := io.RecvMsg(c)
 			if err != nil {
-				fmt.Printf("Error reading: %#v\n", err)
+				if !errors.Is(err, io.EOF) {
+					log.Errorf("Error reading: %w", err)
+				}
+				return
+			}
+
+			if len(buf) < 2 {
+				log.Warnf("Length of message buffer is too small")
 				return
 			}
 
@@ -48,32 +61,32 @@ func handleConnection(c net.Conn) {
 			case msgType == ngap.NASAuthRequest && u.InState(ue.RegistrationInitiated):
 				err := u.HandleNASAuthRequest(c, buf[1:])
 				if err != nil {
-					fmt.Printf("Error: %s", err)
+					log.Errorf("Error NASAuthRequest: %w", err)
 					return
 				}
 				u.ToState(ue.Authentication)
 			case msgType == ngap.NASSecurityModeCommand && u.InState(ue.Authentication):
 				err := u.HandleNASSecurityModeCommand(c, buf[1:])
 				if err != nil {
-					fmt.Printf("Error: %s", err)
+					log.Errorf("Error NASSecurityModeCommand: %w", err)
 					return
 				}
 				u.ToState(ue.SecurityMode)
 			case msgType == ngap.PDUSessionEstAccept && u.InState(ue.SecurityMode):
 				err := u.HandlePDUSessionEstAccept(c, buf[1:])
 				if err != nil {
-					fmt.Printf("Error: %s", err)
+					log.Errorf("Error PDUSessionEstAccept", err)
 					return
 				}
 				u.ToState(ue.Registered)
 			case msgType == ngap.PDURes && u.InState(ue.Registered):
 				err := u.HandlePDURes(c, buf[1:])
 				if err != nil {
-					fmt.Printf("Error: %s", err)
+					log.Errorf("Eroor PDURes: %w", err)
 					return
 				}
 			default:
-				fmt.Println("invalid message type for UE")
+				log.Warnf("invalid message type (%d) for UE ", msgType)
 			}
 		}
 	}
@@ -81,8 +94,6 @@ func handleConnection(c net.Conn) {
 }
 
 func sendRegistrationRequest(c net.Conn) error {
-	fmt.Printf("Serving %s\n", c.RemoteAddr().String())
-
 	regMsg := ngap.NASRegRequestMsg{SecHeader: 0,
 		MobileId: ngap.MobileIdType{Mcc: 0, Mnc: 0, ProtecScheme: 0, HomeNetPki: 0, Msin: 0},
 		SecCap:   ngap.SecCapType{EA: 1, IA: 1},
@@ -94,6 +105,10 @@ func sendRegistrationRequest(c net.Conn) error {
 }
 
 func main() {
+	logger := zap.Must(zap.NewDevelopment())
+	defer logger.Sync()
+	log := logger.Sugar()
+
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9930))
 	if err != nil {
 		log.Fatalf("grpc server failed to listen: %v", err)
@@ -109,13 +124,13 @@ func main() {
 
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
-			log.Fatalf("failed to serve: %s", err)
+			log.Fatalf("grpc failed to serve: %s", err)
 		}
 	}()
 
 	l, err := net.Listen("tcp4", ":6060")
 	if err != nil {
-		fmt.Println(err)
+		log.Fatalf("tcp server failed to listen: %v", err)
 		return
 	}
 	defer l.Close()
@@ -123,9 +138,9 @@ func main() {
 	for {
 		c, err := l.Accept()
 		if err != nil {
-			fmt.Println(err)
+			log.Warnf("connection for listener failed: %v", err)
 			return
 		}
-		go handleConnection(c)
+		go handleConnection(logger, c)
 	}
 }

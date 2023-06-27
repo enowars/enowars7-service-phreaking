@@ -1,9 +1,12 @@
 package ue
 
-import "fmt"
+import (
+	"go.uber.org/zap"
+)
 
 type UE struct {
-	state StateType
+	Logger *zap.Logger
+	state  StateType
 	//MobileId ngap.MobileIdType
 	//SecCap   ngap.SecCapType
 	EaAlg       uint8
@@ -11,8 +14,8 @@ type UE struct {
 	ActivePduId uint8
 }
 
-func NewUE() *UE {
-	return &UE{state: Deregistered}
+func NewUE(logger *zap.Logger) *UE {
+	return &UE{Logger: logger, state: Deregistered}
 }
 
 func (u *UE) GetState(s StateType) StateType {
@@ -20,7 +23,7 @@ func (u *UE) GetState(s StateType) StateType {
 }
 
 func (u *UE) ToState(s StateType) {
-	fmt.Println("To state: ", s)
+	u.Logger.Sugar().Debugf("To state: %s", s)
 	u.state = s
 }
 

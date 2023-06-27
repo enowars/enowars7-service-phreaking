@@ -14,7 +14,7 @@ import (
 
 	"github.com/enowars/enochecker-go"
 	"github.com/redis/go-redis/v9"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
@@ -31,14 +31,14 @@ var serviceInfo = &enochecker.InfoMessage{
 var ErrVariantNotFound = errors.New("variant not found")
 
 type Handler struct {
-	log *logrus.Logger
-	db  *redis.Client
+	logger *zap.Logger
+	db     *redis.Client
 }
 
-func New(log *logrus.Logger, db *redis.Client) *Handler {
+func New(log *zap.Logger, db *redis.Client) *Handler {
 	return &Handler{
-		log: log,
-		db:  db,
+		logger: log,
+		db:     db,
 	}
 }
 
@@ -64,7 +64,7 @@ func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) 
 	}
 	port = "606" + portNum
 	if err = h.db.Set(ctx, message.TaskChainId, port, 0).Err(); err != nil {
-		h.log.Error(err)
+		h.logger.Error(err.Error())
 		return nil, enochecker.NewMumbleError(errors.New("not able to write taskid to db"))
 	}
 	return enochecker.NewPutFlagInfo(port), nil
@@ -346,7 +346,7 @@ func (h *Handler) PutNoise(ctx context.Context, message *enochecker.TaskMessage)
 	portNum := strconv.Itoa(int(message.CurrentRoundId % 10))
 	port := "606" + portNum
 	if err := h.db.Set(ctx, message.TaskChainId, port, 0).Err(); err != nil {
-		h.log.Error(err)
+		h.logger.Error(err.Error())
 		return enochecker.NewMumbleError(errors.New("not able to write taskid to db"))
 	}
 	return nil
