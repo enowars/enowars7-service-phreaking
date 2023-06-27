@@ -7,9 +7,9 @@ services:
     ports:
       - 3303:3303
     environment:
-      - PHREAKING_GRPC_PASS=${PHREAKING_GRPC_PASS}
-      - PHREAKING_SIM_KEY=${PHREAKING_SIM_KEY}
       - REDIS_PASS=asimplesentenceisbetter
+    env_file:
+      - .env
   phreaking-db:
     image: redis:7-alpine
     restart: always
