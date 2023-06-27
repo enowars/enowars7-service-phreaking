@@ -1,9 +1,9 @@
 package pb
 
 import (
-	"log"
 	"os"
 
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
@@ -16,10 +16,13 @@ type Server struct {
 }
 
 func (s *Server) UpdateLocation(ctx context.Context, loc *Loc) (*Response, error) {
-	log.Printf("Receive message from client: %s", loc.Position)
+	logger := zap.Must(zap.NewDevelopment())
+	defer logger.Sync()
+	log := logger.Sugar()
+	log.Infof("GPS location update: %s", loc.Position)
 	file, err := os.OpenFile("/service/data/location.data", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 	}
 	defer file.Close()
 	if _, err := file.WriteString(loc.Position + "\n"); err != nil {
