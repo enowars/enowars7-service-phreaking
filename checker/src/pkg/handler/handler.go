@@ -54,7 +54,9 @@ func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) 
 
 	c := pb.NewLocationClient(conn)
 
-	md := metadata.Pairs("auth", string(os.Getenv("PHREAKING_GRPC_PASS")))
+	grpcEnvVar := "PHREAKING_" + strconv.Itoa(int(message.TeamId)) + "_GRPC_PASS"
+
+	md := metadata.Pairs("auth", string(os.Getenv(grpcEnvVar)))
 	ctx_grpc := metadata.NewOutgoingContext(context.Background(), md)
 	_, err = c.UpdateLocation(ctx_grpc, &pb.Loc{Position: message.Flag})
 	if err != nil {
@@ -93,6 +95,11 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 	if err != nil {
 		return err
 	}
+
+	defer func() {
+		coreConn.Close()
+		ueConn.Close()
+	}()
 
 	setup := ngap.NGSetupRequestMsg{GranId: 0, Tac: 0, Plmn: 0}
 	buf, _ := ngap.EncodeMsg(ngap.NGSetupRequest, &setup)
@@ -175,7 +182,11 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 		return err
 	}
 
-	dec := crypto.DecryptAES(reply[9:])
+	keyEnvVar := "PHREAKING_" + strconv.Itoa(int(message.TeamId)) + "_SIM_KEY"
+
+	key := []byte(string(os.Getenv(keyEnvVar)))
+
+	dec := crypto.DecryptAES(reply[9:], key)
 
 	var loc ngap.LocationUpdateMsg
 	err = ngap.DecodeMsg(dec, &loc)
@@ -224,6 +235,11 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 	if err != nil {
 		return nil, err
 	}
+
+	defer func() {
+		coreConn.Close()
+		ueConn.Close()
+	}()
 
 	setup := ngap.NGSetupRequestMsg{GranId: 0, Tac: 0, Plmn: 0}
 	buf, _ := ngap.EncodeMsg(ngap.NGSetupRequest, &setup)
@@ -364,6 +380,11 @@ func (h *Handler) gnb(ctx context.Context, message *enochecker.TaskMessage, port
 	if err != nil {
 		return err
 	}
+
+	defer func() {
+		coreConn.Close()
+		ueConn.Close()
+	}()
 
 	setup := ngap.NGSetupRequestMsg{GranId: 0, Tac: 0, Plmn: 0}
 	buf, _ := ngap.EncodeMsg(ngap.NGSetupRequest, &setup)
