@@ -24,7 +24,7 @@ var serviceInfo = &enochecker.InfoMessage{
 	ServiceName:     "phreaking",
 	FlagVariants:    1,
 	NoiseVariants:   1,
-	HavocVariants:   0,
+	HavocVariants:   1,
 	ExploitVariants: 1,
 }
 
