@@ -1,12 +1,12 @@
 package io
 
 import (
+	"checker/internal/nas"
+	"checker/internal/ngap"
+	"checker/internal/parser"
 	"errors"
 	"io"
 	"net"
-	"phreaking/pkg/nas"
-	"phreaking/pkg/ngap"
-	"phreaking/pkg/parser"
 )
 
 var EOF error = io.EOF

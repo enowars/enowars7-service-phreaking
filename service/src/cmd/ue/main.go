@@ -4,10 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"phreaking/internal/crypto"
 	"phreaking/internal/io"
 	"phreaking/internal/ue"
 	"phreaking/internal/ue/pb"
-	"phreaking/pkg/ngap"
+	"phreaking/pkg/nas"
+	"phreaking/pkg/parser"
 	"time"
 
 	"go.uber.org/zap"
@@ -28,7 +30,7 @@ func handleConnection(logger *zap.Logger, c net.Conn) {
 
 	u := *ue.NewUE(logger)
 
-	err := sendRegistrationRequest(c)
+	err := sendRegistrationRequest(u, c)
 	if err != nil {
 		log.Error(err)
 		return
@@ -42,7 +44,7 @@ func handleConnection(logger *zap.Logger, c net.Conn) {
 			log.Infof("handleConnection timeout for remote: %s", c.RemoteAddr().String())
 			return
 		default:
-			buf, err := io.RecvMsg(c)
+			buf, err := io.Recv(c)
 			if err != nil {
 				if !errors.Is(err, io.EOF) {
 					log.Errorf("Error reading: %w", err)
@@ -50,58 +52,81 @@ func handleConnection(logger *zap.Logger, c net.Conn) {
 				return
 			}
 
-			if len(buf) < 2 {
-				log.Warnf("Length of message buffer is too small")
+			var gmm nas.GmmHeader
+			err = parser.DecodeMsg(buf, &gmm)
+			if err != nil {
+				log.Warnf("Cannot decode Gmm Header")
 				return
 			}
 
-			msgType := ngap.MsgType(buf[0])
+			msgbuf := gmm.Message
+
+			if gmm.Security {
+				err = crypto.CheckIntegrity(u.IaAlg, msgbuf, gmm.Mac)
+				if err != nil {
+					log.Error(err)
+					return
+				}
+
+				msgbuf, err = crypto.Decrypt(u.EaAlg, msgbuf)
+				if err != nil {
+					log.Error(err)
+					return
+				}
+			}
+
+			msgType := gmm.MessageType
 
 			switch {
-			case msgType == ngap.NASAuthRequest && u.InState(ue.RegistrationInitiated):
-				err := u.HandleNASAuthRequest(c, buf[1:])
+			case msgType == nas.NASAuthRequest && u.InState(ue.RegistrationInitiated):
+				err := u.HandleNASAuthRequest(c, msgbuf)
 				if err != nil {
 					log.Errorf("Error NASAuthRequest: %w", err)
 					return
 				}
 				u.ToState(ue.Authentication)
-			case msgType == ngap.NASSecurityModeCommand && u.InState(ue.Authentication):
-				err := u.HandleNASSecurityModeCommand(c, buf[1:])
+			case msgType == nas.NASSecurityModeCommand && u.InState(ue.Authentication):
+				err := u.HandleNASSecurityModeCommand(c, msgbuf)
 				if err != nil {
 					log.Errorf("Error NASSecurityModeCommand: %w", err)
 					return
 				}
 				u.ToState(ue.SecurityMode)
-			case msgType == ngap.PDUSessionEstAccept && u.InState(ue.SecurityMode):
-				err := u.HandlePDUSessionEstAccept(c, buf[1:])
+			case msgType == nas.PDUSessionEstAccept && u.InState(ue.SecurityMode):
+				err := u.HandlePDUSessionEstAccept(c, msgbuf)
 				if err != nil {
-					log.Errorf("Error PDUSessionEstAccept", err)
+					log.Errorf("Error PDUSessionEstAccept: %w", err)
 					return
 				}
 				u.ToState(ue.Registered)
-			case msgType == ngap.PDURes && u.InState(ue.Registered):
-				err := u.HandlePDURes(c, buf[1:])
+			case msgType == nas.PDURes && u.InState(ue.Registered):
+				err := u.HandlePDURes(c, msgbuf)
 				if err != nil {
-					log.Errorf("Eroor PDURes: %w", err)
+					log.Errorf("Error PDURes: %w", err)
 					return
 				}
 			default:
 				log.Warnf("invalid message type (%d) for UE ", msgType)
+				return
 			}
 		}
 	}
 
 }
 
-func sendRegistrationRequest(c net.Conn) error {
-	regMsg := ngap.NASRegRequestMsg{SecHeader: 0,
-		MobileId: ngap.MobileIdType{Mcc: 0, Mnc: 0, ProtecScheme: 0, HomeNetPki: 0, Msin: 0},
-		SecCap:   ngap.SecCapType{EA: 1, IA: 1},
+func sendRegistrationRequest(u ue.UE, c net.Conn) error {
+	regMsg := nas.NASRegRequestMsg{SecHeader: 0,
+		MobileId: nas.MobileIdType{Mcc: 0, Mnc: 0, ProtecScheme: 0, HomeNetPki: 0, Msin: 0},
+		SecCap:   nas.SecCapType{EA: 1, IA: 1},
 	}
 
-	pdu, _ := ngap.EncodeMsg(ngap.NASRegRequest, &regMsg)
-	err := io.SendMsg(c, pdu)
-	return err
+	msg, err := parser.EncodeMsg(&regMsg)
+	if err != nil {
+		return err
+	}
+
+	gmm := nas.GmmHeader{Security: false, Mac: [8]byte{}, MessageType: nas.NASRegRequest, Message: msg}
+	return io.SendGmm(c, gmm)
 }
 
 func main() {

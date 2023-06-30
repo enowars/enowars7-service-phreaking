@@ -1,6 +1,7 @@
 package core
 
 import (
+	"phreaking/pkg/nas"
 	"phreaking/pkg/ngap"
 
 	"go.uber.org/zap"
@@ -26,7 +27,7 @@ type AmfGNB struct {
 type AmfUE struct {
 	RanUeNgapId   uint32
 	AmfUeNgapId   ngap.AmfUeNgapIdType
-	SecCap        ngap.SecCapType
+	SecCap        nas.SecCapType
 	EaAlg         uint8
 	IaAlg         uint8
 	Authenticated bool

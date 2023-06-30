@@ -1,7 +1,7 @@
 package ngap
 
 import (
-	"phreaking/pkg/nas"
+	"checker/internal/nas"
 
 	"github.com/gofrs/uuid"
 )

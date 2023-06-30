@@ -1,7 +1,7 @@
 package main
 
 import (
-	"checker/pkg/handler"
+	"checker/internal/handler"
 	"context"
 	"net/http"
 	"os"

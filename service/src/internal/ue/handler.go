@@ -2,50 +2,23 @@ package ue
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"net"
 	"os"
 	"phreaking/internal/crypto"
 	"phreaking/internal/io"
-	"phreaking/pkg/ngap"
-	"time"
+	"phreaking/pkg/nas"
+	"phreaking/pkg/parser"
 )
 
 var (
-	errDecode        = errors.New("cannot decode message")
-	errIntegrity     = errors.New("integrity check failed")
-	errNullIntegrity = errors.New("null integrity is not allowed")
-	errIntegrityImp  = errors.New("integrity not implemented")
+	errDecode = errors.New("cannot decode message")
 )
 
 func (u *UE) HandlePDURes(c net.Conn, msgbuf []byte) error {
-	var msg ngap.PDUResMsg
+	var msg nas.PDUResMsg
 
-	mac := msgbuf[:8]
-
-	msgbuf = msgbuf[8:]
-
-	switch {
-	case u.IaAlg == 0:
-		return errNullIntegrity
-	case u.IaAlg < 5:
-		alg, ok := crypto.IAalg[u.IaAlg]
-		if !ok {
-			return errIntegrityImp
-		}
-		if !bytes.Equal(mac, alg(msgbuf)[:8]) {
-			return errIntegrity
-		}
-	default:
-		return errIntegrityImp
-	}
-
-	if u.EaAlg == 1 {
-		msgbuf = crypto.DecryptAES(msgbuf)
-	}
-
-	err := ngap.DecodeMsg(msgbuf, &msg)
+	err := parser.DecodeMsg(msgbuf, &msg)
 	if err != nil {
 		return errDecode
 	}
@@ -55,64 +28,29 @@ func (u *UE) HandlePDURes(c net.Conn, msgbuf []byte) error {
 }
 
 func (u *UE) HandlePDUSessionEstAccept(c net.Conn, msgbuf []byte) error {
-	var msg ngap.PDUSessionEstAcceptMsg
+	var msg nas.PDUSessionEstAcceptMsg
 
-	mac := msgbuf[:8]
-
-	msgbuf = msgbuf[8:]
-
-	switch {
-	case u.IaAlg == 0:
-		return errNullIntegrity
-	case u.IaAlg < 5:
-		alg, ok := crypto.IAalg[u.IaAlg]
-		if !ok {
-			return errIntegrityImp
-		}
-		if !bytes.Equal(mac, alg(msgbuf)[:8]) {
-			return errIntegrity
-		}
-	default:
-		return errIntegrityImp
-	}
-
-	if u.EaAlg == 1 {
-		msgbuf = crypto.DecryptAES(msgbuf)
-	}
-
-	err := ngap.DecodeMsg(msgbuf, &msg)
+	err := parser.DecodeMsg(msgbuf, &msg)
 	if err != nil {
 		return errDecode
 	}
 
 	u.ActivePduId = msg.PduSesId
 
-	pduReq := ngap.PDUReqMsg{PduSesId: u.ActivePduId, Request: []byte("http://httpbin.org/html")}
+	pduReq := nas.PDUReqMsg{PduSesId: u.ActivePduId, Request: []byte("http://httpbin.org/html")}
 
-	pdu, err := ngap.EncodeMsgBytes(&pduReq)
+	pduReqMsg, mac, err := nas.BuildMessage(u.EaAlg, u.IaAlg, &pduReq)
 	if err != nil {
 		return err
 	}
 
-	if u.EaAlg == 1 {
-		pdu = crypto.EncryptAES(pdu)
-	}
-
-	mac = crypto.IAalg[u.IaAlg](pdu)[:8]
-
-	var b bytes.Buffer
-	b.WriteByte(byte(ngap.PDUReq))
-	b.Write(mac)
-	b.Write(pdu)
-
-	pdu = b.Bytes()
-
-	return io.SendMsg(c, pdu)
+	gmm := nas.GmmHeader{Security: true, Mac: mac, MessageType: nas.PDUReq, Message: pduReqMsg}
+	return io.SendGmm(c, gmm)
 }
 
 func (u *UE) HandleNASSecurityModeCommand(c net.Conn, msgbuf []byte) error {
-	var msg ngap.NASSecurityModeCommandMsg
-	err := ngap.DecodeMsg(msgbuf, &msg)
+	var msg nas.NASSecurityModeCommandMsg
+	err := parser.DecodeMsg(msgbuf, &msg)
 	if err != nil {
 		return errors.New("cannot decode")
 	}
@@ -120,80 +58,44 @@ func (u *UE) HandleNASSecurityModeCommand(c net.Conn, msgbuf []byte) error {
 	u.EaAlg = msg.EaAlg
 	u.IaAlg = msg.IaAlg
 
-	// LocationUpdate
-
 	location := ""
-
 	readFile, err := os.Open("/service/data/location.data")
 	if err != nil {
 		return err
 	}
+
 	fileScanner := bufio.NewScanner(readFile)
-
 	fileScanner.Split(bufio.ScanLines)
-
 	for fileScanner.Scan() {
 		location = fileScanner.Text()
 	}
-
 	readFile.Close()
 
-	pduLoc := ngap.LocationUpdateMsg{Location: location}
-
-	pdu, err := ngap.EncodeMsgBytes(&pduLoc)
+	loc := nas.LocationUpdateMsg{Location: location}
+	locMsg, mac, err := nas.BuildMessage(u.EaAlg, u.IaAlg, &loc)
 	if err != nil {
 		return err
 	}
 
-	if u.EaAlg == 1 {
-		pdu = crypto.EncryptAES(pdu)
-	}
-
-	mac := crypto.IAalg[u.IaAlg](pdu)[:8]
-
-	var b bytes.Buffer
-	b.WriteByte(byte(ngap.LocationUpdate))
-	b.Write(mac)
-	b.Write(pdu)
-
-	pdu = b.Bytes()
-
-	err = io.SendMsg(c, pdu)
+	gmm := nas.GmmHeader{Security: true, Mac: mac, MessageType: nas.LocationUpdate, Message: locMsg}
+	err = io.SendGmm(c, gmm)
 	if err != nil {
 		return err
 	}
 
-	time.Sleep(500 * time.Millisecond)
-
-	b.Reset()
-
-	// PDUSessionEstRequestMsg
-
-	pduReq := ngap.PDUSessionEstRequestMsg{PduSesId: 0, PduSesType: 0}
-
-	pdu, err = ngap.EncodeMsgBytes(&pduReq)
+	pduEstReq := nas.PDUSessionEstRequestMsg{PduSesId: 0, PduSesType: 0}
+	pduEstReqMsg, mac, err := nas.BuildMessage(u.EaAlg, u.IaAlg, &pduEstReq)
 	if err != nil {
 		return err
 	}
 
-	if u.EaAlg == 1 {
-		pdu = crypto.EncryptAES(pdu)
-	}
-
-	mac = crypto.IAalg[u.IaAlg](pdu)[:8]
-
-	b.WriteByte(byte(ngap.PDUSessionEstRequest))
-	b.Write(mac)
-	b.Write(pdu)
-
-	pdu = b.Bytes()
-
-	return io.SendMsg(c, pdu)
+	gmm = nas.GmmHeader{Security: true, Mac: mac, MessageType: nas.PDUSessionEstRequest, Message: pduEstReqMsg}
+	return io.SendGmm(c, gmm)
 }
 
 func (u *UE) HandleNASAuthRequest(c net.Conn, msgbuf []byte) error {
-	var msg ngap.NASAuthRequestMsg
-	err := ngap.DecodeMsg(msgbuf, &msg)
+	var msg nas.NASAuthRequestMsg
+	err := parser.DecodeMsg(msgbuf, &msg)
 	if err != nil {
 		return errors.New("cannot decode")
 	}
@@ -203,9 +105,12 @@ func (u *UE) HandleNASAuthRequest(c net.Conn, msgbuf []byte) error {
 	}
 
 	res := crypto.IA2(msg.Rand)
+	authRes := nas.NASAuthResponseMsg{SecHeader: 0, Res: res}
+	authResMsg, mac, err := nas.BuildMessagePlain(&authRes)
+	if err != nil {
+		return err
+	}
 
-	authRes := ngap.NASAuthResponseMsg{SecHeader: 0, Res: res}
-	pdu, _ := ngap.EncodeMsg(ngap.NASAuthResponse, &authRes)
-
-	return io.SendMsg(c, pdu)
+	gmm := nas.GmmHeader{Security: false, Mac: mac, MessageType: nas.NASAuthResponse, Message: authResMsg}
+	return io.SendGmm(c, gmm)
 }

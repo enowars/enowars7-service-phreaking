@@ -1,15 +1,16 @@
 package crypto
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
+	"errors"
 	"fmt"
 	"io"
-	"log"
 
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/sha3"
@@ -22,18 +23,21 @@ func ComputeHash(input []byte) (hash string) {
 	return string(bs)
 }
 
-func EncryptAES(input []byte, key []byte) (res []byte) {
+func EncryptAES(input []byte, key []byte) ([]byte, error) {
 	aesBlock, err := aes.NewCipher(key)
 	if err != nil {
-		fmt.Println(err)
+		return nil, err
 	}
 
 	gcmInstance, err := cipher.NewGCM(aesBlock)
 	if err != nil {
-		fmt.Println(err)
+		return nil, err
 	}
 	nonce := make([]byte, gcmInstance.NonceSize())
-	_, _ = io.ReadFull(rand.Reader, nonce)
+	_, err = io.ReadFull(rand.Reader, nonce)
+	if err != nil {
+		return nil, err
+	}
 	ct := gcmInstance.Seal(nil, nonce, input, nil)
 	nonceSize := len(nonce)
 	bufSize := len(ct) + nonceSize + 1
@@ -41,31 +45,62 @@ func EncryptAES(input []byte, key []byte) (res []byte) {
 	buf[0] = byte(nonceSize)
 	copy(buf[1:1+nonceSize], nonce)
 	copy(buf[1+nonceSize:], ct)
-	return buf
+	return buf, nil
 }
 
-func DecryptAES(ct []byte, key []byte) (res []byte) {
+func DecryptAES(ct []byte, key []byte) ([]byte, error) {
 	aesBlock, err := aes.NewCipher(key)
 	if err != nil {
-		log.Fatalln(err)
+		return nil, err
 	}
 	gcmInstance, err := cipher.NewGCM(aesBlock)
 	if err != nil {
-		log.Fatalln(err)
+		return nil, err
 	}
 	nonceSize := int(ct[0])
 	nonce, cipheredText := ct[1:1+nonceSize], ct[1+nonceSize:]
 	originalText, err := gcmInstance.Open(nil, nonce, cipheredText, nil)
 	if err != nil {
-		log.Fatalln(err)
+		return nil, err
 	}
-	return originalText
+	return originalText, nil
 }
 
-func CheckIntegrity(buf []byte, mac []byte, key []byte) bool {
-	dec := string(DecryptAES(mac, key))
-	hash := ComputeHash(buf)
-	return (dec == hash)
+func Decrypt(EA uint8, msgbuf []byte, key []byte) ([]byte, error) {
+	if EA == 0 {
+		return msgbuf, nil
+	} else if EA == 1 {
+		return DecryptAES(msgbuf, key)
+	}
+	return nil, fmt.Errorf("encryption alg %d is not supported", EA)
+}
+
+func Encrypt(EA uint8, msgbuf []byte, key []byte) ([]byte, error) {
+	if EA == 0 {
+		return msgbuf, nil
+	} else if EA == 1 {
+		return EncryptAES(msgbuf, key)
+	}
+	return nil, fmt.Errorf("encryption alg %d is not supported", EA)
+}
+
+func CheckIntegrity(IA uint8, buf []byte, mac [8]byte, key []byte) error {
+	switch {
+	case IA == 0:
+		return errors.New("null integrity is not allowed")
+	case IA < 5:
+		alg, ok := IAalg[IA]
+		if !ok {
+			return fmt.Errorf("integrity alg %d is not implemented", IA)
+		}
+		if !bytes.Equal(mac[:], alg(buf, key)[:8]) {
+			return errors.New("integrity check failed")
+		} else {
+			return nil
+		}
+	default:
+		return fmt.Errorf("integrity alg %d is not implemented", IA)
+	}
 }
 
 func IA0(msg []byte, key []byte) (mac []byte) {
