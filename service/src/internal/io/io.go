@@ -4,7 +4,9 @@ import (
 	"errors"
 	"io"
 	"net"
+	"phreaking/pkg/nas"
 	"phreaking/pkg/ngap"
+	"phreaking/pkg/parser"
 )
 
 var EOF error = io.EOF
@@ -25,8 +27,22 @@ func Send(conn net.Conn, msg []byte) (err error) {
 	return nil
 }
 
-func SendGmm(conn net.Conn, gmm ngap.GmmPacket) (err error) {
-	pkt, err := ngap.EncodeMsg(&gmm)
+func SendGmm(conn net.Conn, gmm nas.GmmHeader) (err error) {
+	pkt, err := parser.EncodeMsg(&gmm)
+	if err != nil {
+		return err
+	}
+
+	return Send(conn, pkt)
+}
+
+func SendNgapMsg[T any](conn net.Conn, ngapType ngap.NgapMsgType, msgPtr *T) (err error) {
+	ngapPdu, err := parser.EncodeMsg(&msgPtr)
+	if err != nil {
+		return err
+	}
+	ngapHeader := ngap.NgapHeader{MessageType: ngapType, NgapPdu: ngapPdu}
+	pkt, err := parser.EncodeMsg(&ngapHeader)
 	if err != nil {
 		return err
 	}

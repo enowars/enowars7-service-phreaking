@@ -8,7 +8,8 @@ import (
 	"phreaking/internal/io"
 	"phreaking/internal/ue"
 	"phreaking/internal/ue/pb"
-	"phreaking/pkg/ngap"
+	"phreaking/pkg/nas"
+	"phreaking/pkg/parser"
 	"time"
 
 	"go.uber.org/zap"
@@ -51,8 +52,8 @@ func handleConnection(logger *zap.Logger, c net.Conn) {
 				return
 			}
 
-			var gmm ngap.GmmPacket
-			err = ngap.DecodeMsg(buf, &gmm)
+			var gmm nas.GmmHeader
+			err = parser.DecodeMsg(buf, &gmm)
 			if err != nil {
 				log.Warnf("Cannot decode Gmm Header")
 				return
@@ -77,28 +78,28 @@ func handleConnection(logger *zap.Logger, c net.Conn) {
 			msgType := gmm.MessageType
 
 			switch {
-			case msgType == ngap.NASAuthRequest && u.InState(ue.RegistrationInitiated):
+			case msgType == nas.NASAuthRequest && u.InState(ue.RegistrationInitiated):
 				err := u.HandleNASAuthRequest(c, msgbuf)
 				if err != nil {
 					log.Errorf("Error NASAuthRequest: %w", err)
 					return
 				}
 				u.ToState(ue.Authentication)
-			case msgType == ngap.NASSecurityModeCommand && u.InState(ue.Authentication):
+			case msgType == nas.NASSecurityModeCommand && u.InState(ue.Authentication):
 				err := u.HandleNASSecurityModeCommand(c, msgbuf)
 				if err != nil {
 					log.Errorf("Error NASSecurityModeCommand: %w", err)
 					return
 				}
 				u.ToState(ue.SecurityMode)
-			case msgType == ngap.PDUSessionEstAccept && u.InState(ue.SecurityMode):
+			case msgType == nas.PDUSessionEstAccept && u.InState(ue.SecurityMode):
 				err := u.HandlePDUSessionEstAccept(c, msgbuf)
 				if err != nil {
 					log.Errorf("Error PDUSessionEstAccept: %w", err)
 					return
 				}
 				u.ToState(ue.Registered)
-			case msgType == ngap.PDURes && u.InState(ue.Registered):
+			case msgType == nas.PDURes && u.InState(ue.Registered):
 				err := u.HandlePDURes(c, msgbuf)
 				if err != nil {
 					log.Errorf("Error PDURes: %w", err)
@@ -113,17 +114,17 @@ func handleConnection(logger *zap.Logger, c net.Conn) {
 }
 
 func sendRegistrationRequest(u ue.UE, c net.Conn) error {
-	regMsg := ngap.NASRegRequestMsg{SecHeader: 0,
-		MobileId: ngap.MobileIdType{Mcc: 0, Mnc: 0, ProtecScheme: 0, HomeNetPki: 0, Msin: 0},
-		SecCap:   ngap.SecCapType{EA: 1, IA: 1},
+	regMsg := nas.NASRegRequestMsg{SecHeader: 0,
+		MobileId: nas.MobileIdType{Mcc: 0, Mnc: 0, ProtecScheme: 0, HomeNetPki: 0, Msin: 0},
+		SecCap:   nas.SecCapType{EA: 1, IA: 1},
 	}
 
-	msg, err := ngap.EncodeMsg(&regMsg)
+	msg, err := parser.EncodeMsg(&regMsg)
 	if err != nil {
 		return err
 	}
 
-	gmm := ngap.GmmPacket{Security: false, Mac: [8]byte{}, MessageType: ngap.NASAuthRequest, Message: msg}
+	gmm := nas.GmmHeader{Security: false, Mac: [8]byte{}, MessageType: nas.NASAuthRequest, Message: msg}
 	return io.SendGmm(c, gmm)
 }
 

@@ -7,7 +7,8 @@ import (
 	"os"
 	"phreaking/internal/crypto"
 	"phreaking/internal/io"
-	"phreaking/pkg/ngap"
+	"phreaking/pkg/nas"
+	"phreaking/pkg/parser"
 )
 
 var (
@@ -15,9 +16,9 @@ var (
 )
 
 func (u *UE) HandlePDURes(c net.Conn, msgbuf []byte) error {
-	var msg ngap.PDUResMsg
+	var msg nas.PDUResMsg
 
-	err := ngap.DecodeMsg(msgbuf, &msg)
+	err := parser.DecodeMsg(msgbuf, &msg)
 	if err != nil {
 		return errDecode
 	}
@@ -27,29 +28,29 @@ func (u *UE) HandlePDURes(c net.Conn, msgbuf []byte) error {
 }
 
 func (u *UE) HandlePDUSessionEstAccept(c net.Conn, msgbuf []byte) error {
-	var msg ngap.PDUSessionEstAcceptMsg
+	var msg nas.PDUSessionEstAcceptMsg
 
-	err := ngap.DecodeMsg(msgbuf, &msg)
+	err := parser.DecodeMsg(msgbuf, &msg)
 	if err != nil {
 		return errDecode
 	}
 
 	u.ActivePduId = msg.PduSesId
 
-	pduReq := ngap.PDUReqMsg{PduSesId: u.ActivePduId, Request: []byte("http://httpbin.org/html")}
+	pduReq := nas.PDUReqMsg{PduSesId: u.ActivePduId, Request: []byte("http://httpbin.org/html")}
 
-	pduReqMsg, mac, err := ngap.BuildMessage(u.EaAlg, u.IaAlg, &pduReq)
+	pduReqMsg, mac, err := nas.BuildMessage(u.EaAlg, u.IaAlg, &pduReq)
 	if err != nil {
 		return err
 	}
 
-	gmm := ngap.GmmPacket{Security: true, Mac: mac, MessageType: ngap.PDUReq, Message: pduReqMsg}
+	gmm := nas.GmmHeader{Security: true, Mac: mac, MessageType: nas.PDUReq, Message: pduReqMsg}
 	return io.SendGmm(c, gmm)
 }
 
 func (u *UE) HandleNASSecurityModeCommand(c net.Conn, msgbuf []byte) error {
-	var msg ngap.NASSecurityModeCommandMsg
-	err := ngap.DecodeMsg(msgbuf, &msg)
+	var msg nas.NASSecurityModeCommandMsg
+	err := parser.DecodeMsg(msgbuf, &msg)
 	if err != nil {
 		return errors.New("cannot decode")
 	}
@@ -70,31 +71,31 @@ func (u *UE) HandleNASSecurityModeCommand(c net.Conn, msgbuf []byte) error {
 	}
 	readFile.Close()
 
-	loc := ngap.LocationUpdateMsg{Location: location}
-	locMsg, mac, err := ngap.BuildMessage(u.EaAlg, u.IaAlg, &loc)
+	loc := nas.LocationUpdateMsg{Location: location}
+	locMsg, mac, err := nas.BuildMessage(u.EaAlg, u.IaAlg, &loc)
 	if err != nil {
 		return err
 	}
 
-	gmm := ngap.GmmPacket{Security: true, Mac: mac, MessageType: ngap.LocationUpdate, Message: locMsg}
+	gmm := nas.GmmHeader{Security: true, Mac: mac, MessageType: nas.LocationUpdate, Message: locMsg}
 	err = io.SendGmm(c, gmm)
 	if err != nil {
 		return err
 	}
 
-	pduEstReq := ngap.PDUSessionEstRequestMsg{PduSesId: 0, PduSesType: 0}
-	pduEstReqMsg, mac, err := ngap.BuildMessage(u.EaAlg, u.IaAlg, &pduEstReq)
+	pduEstReq := nas.PDUSessionEstRequestMsg{PduSesId: 0, PduSesType: 0}
+	pduEstReqMsg, mac, err := nas.BuildMessage(u.EaAlg, u.IaAlg, &pduEstReq)
 	if err != nil {
 		return err
 	}
 
-	gmm = ngap.GmmPacket{Security: true, Mac: mac, MessageType: ngap.PDUSessionEstRequest, Message: pduEstReqMsg}
+	gmm = nas.GmmHeader{Security: true, Mac: mac, MessageType: nas.PDUSessionEstRequest, Message: pduEstReqMsg}
 	return io.SendGmm(c, gmm)
 }
 
 func (u *UE) HandleNASAuthRequest(c net.Conn, msgbuf []byte) error {
-	var msg ngap.NASAuthRequestMsg
-	err := ngap.DecodeMsg(msgbuf, &msg)
+	var msg nas.NASAuthRequestMsg
+	err := parser.DecodeMsg(msgbuf, &msg)
 	if err != nil {
 		return errors.New("cannot decode")
 	}
@@ -104,12 +105,12 @@ func (u *UE) HandleNASAuthRequest(c net.Conn, msgbuf []byte) error {
 	}
 
 	res := crypto.IA2(msg.Rand)
-	authRes := ngap.NASAuthResponseMsg{SecHeader: 0, Res: res}
-	authResMsg, mac, err := ngap.BuildMessagePlain(&authRes)
+	authRes := nas.NASAuthResponseMsg{SecHeader: 0, Res: res}
+	authResMsg, mac, err := nas.BuildMessagePlain(&authRes)
 	if err != nil {
 		return err
 	}
 
-	gmm := ngap.GmmPacket{Security: false, Mac: mac, MessageType: ngap.NASAuthRequest, Message: authResMsg}
+	gmm := nas.GmmHeader{Security: false, Mac: mac, MessageType: nas.NASAuthRequest, Message: authResMsg}
 	return io.SendGmm(c, gmm)
 }

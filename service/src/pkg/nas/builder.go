@@ -1,4 +1,4 @@
-package ngap
+package nas
 
 import (
 	"bytes"
