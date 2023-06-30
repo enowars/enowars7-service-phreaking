@@ -296,7 +296,7 @@ func (amf *Amf) handleInitUEMessage(c net.Conn, buf []byte, amfg *AmfGNB) error 
 
 	msgType := initmsg.NasPdu.MessageType
 	if msgType != nas.NASRegRequest {
-		return errors.New("InitUEMessage contains uknown message type")
+		return errors.New("InitUEMessage contains unknown message type")
 	}
 	var regmsg nas.NASRegRequestMsg
 	err = parser.DecodeMsg(initmsg.NasPdu.Message, &regmsg)
@@ -363,7 +363,7 @@ func (amf *Amf) handleNASAuthResponse(c net.Conn, buf []byte, amfg *AmfGNB, ue *
 		return errDecode
 	}
 
-	gmm := nas.GmmHeader{false, mac, nas.NASAuthRequest, secModeMsg}
+	gmm := nas.GmmHeader{false, mac, nas.NASSecurityModeCommand, secModeMsg}
 	downTrans := ngap.DownNASTransMsg{AmfUeNgapId: ue.AmfUeNgapId, RanUeNgapId: ue.RanUeNgapId, NasPdu: gmm}
 	return io.SendNgapMsg(c, ngap.DownNASTrans, &downTrans)
 }

@@ -111,6 +111,6 @@ func (u *UE) HandleNASAuthRequest(c net.Conn, msgbuf []byte) error {
 		return err
 	}
 
-	gmm := nas.GmmHeader{Security: false, Mac: mac, MessageType: nas.NASAuthRequest, Message: authResMsg}
+	gmm := nas.GmmHeader{Security: false, Mac: mac, MessageType: nas.NASAuthResponse, Message: authResMsg}
 	return io.SendGmm(c, gmm)
 }

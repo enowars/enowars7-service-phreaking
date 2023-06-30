@@ -6,7 +6,9 @@ import (
 	"net"
 	"os"
 	"phreaking/internal/io"
+	"phreaking/pkg/nas"
 	"phreaking/pkg/ngap"
+	"phreaking/pkg/parser"
 )
 
 var coreConn *net.TCPConn
@@ -15,7 +17,8 @@ func handleUeConnection(ueConn net.Conn) {
 	defer ueConn.Close()
 
 	for {
-		// msgType := ngap.MsgType(buf[0])
+		var gmm nas.GmmHeader
+
 		reply, err := io.Recv(ueConn)
 		if err != nil {
 			fmt.Printf("Error reading: %#v\n", err)
@@ -25,12 +28,15 @@ func handleUeConnection(ueConn net.Conn) {
 		fmt.Println("=============================")
 		fmt.Printf("FROM UE: (NASRegRequest)\n %s\n", reply)
 
-		initUeMsg := ngap.InitUEMessageMsg{NasPdu: reply, RanUeNgapId: 1}
-		buf, _ := ngap.EncodeMsg(ngap.InitUEMessage, &initUeMsg)
+		err = parser.DecodeMsg(reply, &gmm)
+		if err != nil {
+			fmt.Printf("Error decoding: %#v\n", err)
+			return
+		}
 
-		fmt.Println("=============================")
-		fmt.Printf("TO CORE: (InitUEMessage + NASRegRequest)\n %s\n", buf)
-		err = io.Send(coreConn, buf)
+		initUeMsg := ngap.InitUEMessageMsg{NasPdu: gmm, RanUeNgapId: 1}
+		fmt.Printf("TO CORE: (InitUEMessage + NASRegRequest)\n %s\n", initUeMsg)
+		err = io.SendNgapMsg(coreConn, ngap.InitUEMessage, &initUeMsg)
 		if err != nil {
 			fmt.Printf("Error sending: %#v\n", err)
 			return
@@ -42,12 +48,18 @@ func handleUeConnection(ueConn net.Conn) {
 			fmt.Printf("Error reading: %#v\n", err)
 			return
 		}
+		var ngapHeader ngap.NgapHeader
+		err = parser.DecodeMsg(reply, &ngapHeader)
+		if err != nil {
+			fmt.Printf("Error decoding: %#v\n", err)
+			return
+		}
 
 		fmt.Println("=============================")
 		fmt.Printf("FROM CORE: (DownNASTrans + NASAuthRequest)\n %s\n", reply)
 
 		var down ngap.DownNASTransMsg
-		err = ngap.DecodeMsg(reply[1:], &down)
+		err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 		if err != nil {
 			fmt.Println("cannot decode")
 			return
@@ -55,7 +67,7 @@ func handleUeConnection(ueConn net.Conn) {
 
 		fmt.Println("=============================")
 		fmt.Printf("TO UE: (NASAuthRequest)\n %s\n", down.NasPdu)
-		err = io.Send(ueConn, down.NasPdu)
+		err = io.SendGmm(ueConn, down.NasPdu)
 		if err != nil {
 			fmt.Printf("Error sending: %#v\n", err)
 			return
@@ -73,17 +85,23 @@ func handleUeConnection(ueConn net.Conn) {
 		amfUeNgapId := down.AmfUeNgapId
 
 		// AuthRes
-		up := ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
-		buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
 
-		err = io.Send(coreConn, buf)
+		gmm = nas.GmmHeader{}
+		err = parser.DecodeMsg(reply, &gmm)
+		if err != nil {
+			fmt.Printf("Error decoding: %#v\n", err)
+			return
+		}
+
+		up := ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
+		err = io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
 		if err != nil {
 			fmt.Printf("Error sending: %#v\n", err)
 			return
 		}
 
 		fmt.Println("=============================")
-		fmt.Printf("TO CORE: (UpNASTrans + NASAuthRes)\n %s\n", buf)
+		fmt.Printf("TO CORE: (UpNASTrans + NASAuthRes)\n %s\n", up)
 
 		// SecModeCmd
 		reply, err = io.Recv(coreConn)
@@ -95,9 +113,16 @@ func handleUeConnection(ueConn net.Conn) {
 		fmt.Println("=============================")
 		fmt.Printf("FROM CORE: (DownNASTrans + NASSecurityModeCommand)\n %s\n", reply)
 
+		ngapHeader = ngap.NgapHeader{}
+		err = parser.DecodeMsg(reply, &ngapHeader)
+		if err != nil {
+			fmt.Printf("Error decoding: %#v\n", err)
+			return
+		}
+
 		down = ngap.DownNASTransMsg{}
 
-		err = ngap.DecodeMsg(reply[1:], &down)
+		err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 		if err != nil {
 			fmt.Println("cannot decode")
 			return
@@ -105,7 +130,7 @@ func handleUeConnection(ueConn net.Conn) {
 
 		fmt.Println("=============================")
 		fmt.Printf("TO UE: (NASSecurityModeCommand)\n %s\n", down.NasPdu)
-		err = io.Send(ueConn, down.NasPdu)
+		err = io.SendGmm(ueConn, down.NasPdu)
 		if err != nil {
 			fmt.Printf("Error sending: %#v\n", err)
 			return
@@ -120,12 +145,22 @@ func handleUeConnection(ueConn net.Conn) {
 		fmt.Println("=============================")
 		fmt.Printf("FROM UE: (LocationUpdate)\n %s\n", reply)
 
-		up = ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
-		buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
-		io.Send(coreConn, buf)
+		gmm = nas.GmmHeader{}
+		err = parser.DecodeMsg(reply, &gmm)
+		if err != nil {
+			fmt.Printf("Error decoding: %#v\n", err)
+			return
+		}
+
+		up = ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
+		err = io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
+		if err != nil {
+			fmt.Printf("Error sending: %#v\n", err)
+			return
+		}
 
 		fmt.Println("=============================")
-		fmt.Printf("TO CORE: (UpNASTrans + LocationUpdate)\n %s\n", buf)
+		fmt.Printf("TO CORE: (UpNASTrans + LocationUpdate)\n %s\n", up)
 
 		// PDUSessionReq
 		reply, err = io.Recv(ueConn)
@@ -136,15 +171,21 @@ func handleUeConnection(ueConn net.Conn) {
 		fmt.Println("=============================")
 		fmt.Printf("FROM UE: (PDUSessionEstRequest)\n %s\n", reply)
 
-		up = ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
-		buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
-		err = io.Send(coreConn, buf)
+		gmm = nas.GmmHeader{}
+		err = parser.DecodeMsg(reply, &gmm)
+		if err != nil {
+			fmt.Printf("Error decoding: %#v\n", err)
+			return
+		}
+
+		up = ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
+		err = io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
 		if err != nil {
 			fmt.Printf("Error sending: %#v\n", err)
 			return
 		}
 		fmt.Println("=============================")
-		fmt.Printf("TO CORE: (UpNASTrans + PDUSessionEstRequest)\n %s\n", buf)
+		fmt.Printf("TO CORE: (UpNASTrans + PDUSessionEstRequest)\n %s\n", up)
 
 		// PDUSessionAccept
 
@@ -157,14 +198,22 @@ func handleUeConnection(ueConn net.Conn) {
 		fmt.Println("=============================")
 		fmt.Printf("FROM CORE: (DownNASTrans + PDUSessionEstResponse)\n %s\n", reply)
 
+		ngapHeader = ngap.NgapHeader{}
+		err = parser.DecodeMsg(reply, &ngapHeader)
+		if err != nil {
+			fmt.Printf("Error decoding: %#v\n", err)
+			return
+		}
+
 		down = ngap.DownNASTransMsg{}
-		err = ngap.DecodeMsg(reply[1:], &down)
+
+		err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 		if err != nil {
 			fmt.Println("cannot decode")
 			return
 		}
 
-		err = io.Send(ueConn, down.NasPdu)
+		err = io.SendGmm(ueConn, down.NasPdu)
 		if err != nil {
 			fmt.Printf("Error sending: %#v\n", err)
 			return
@@ -184,12 +233,22 @@ func handleUeConnection(ueConn net.Conn) {
 		fmt.Println("=============================")
 		fmt.Printf("FROM UE: (PDUReq)\n %s\n", reply)
 
-		up = ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
-		buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
-		io.Send(coreConn, buf)
+		gmm = nas.GmmHeader{}
+		err = parser.DecodeMsg(reply, &gmm)
+		if err != nil {
+			fmt.Printf("Error decoding: %#v\n", err)
+			return
+		}
+
+		up = ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
+		err = io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
+		if err != nil {
+			fmt.Printf("Error sending: %#v\n", err)
+			return
+		}
 
 		fmt.Println("=============================")
-		fmt.Printf("TO CORE: (UpNASTrans + PDUReq)\n %s\n", buf)
+		fmt.Printf("TO CORE: (UpNASTrans + PDUReq)\n %s\n", up)
 
 		// PDURes
 
@@ -202,14 +261,22 @@ func handleUeConnection(ueConn net.Conn) {
 		fmt.Println("=============================")
 		fmt.Printf("FROM CORE: (DownNASTrans + PDURes)\n %s\n", reply)
 
+		ngapHeader = ngap.NgapHeader{}
+		err = parser.DecodeMsg(reply, &ngapHeader)
+		if err != nil {
+			fmt.Printf("Error decoding: %#v\n", err)
+			return
+		}
+
 		down = ngap.DownNASTransMsg{}
-		err = ngap.DecodeMsg(reply[1:], &down)
+
+		err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 		if err != nil {
 			fmt.Println("cannot decode")
 			return
 		}
 
-		err = io.Send(ueConn, down.NasPdu)
+		err = io.SendGmm(ueConn, down.NasPdu)
 		if err != nil {
 			fmt.Printf("Error sending: %#v\n", err)
 			return
@@ -249,17 +316,17 @@ func main() {
 	defer coreConn.Close()
 
 	setup := ngap.NGSetupRequestMsg{GranId: 0, Tac: 0, Plmn: 0}
-	buf, _ := ngap.EncodeMsg(ngap.NGSetupRequest, &setup)
+	setupBuf, _ := parser.EncodeMsg(&setup)
 
 	fmt.Println("=============================")
-	fmt.Printf("TO CORE: (NGSetupRequest)\n %s\n", buf)
-	err = io.Send(coreConn, buf)
+	fmt.Printf("TO CORE: (NGSetupRequest)\n %s\n", setupBuf)
+	err = io.SendNgapMsg(coreConn, ngap.NGSetupRequest, &setup)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	buf, err = io.Recv(coreConn)
+	buf, err := io.Recv(coreConn)
 	if err != nil {
 		fmt.Println(err)
 		return

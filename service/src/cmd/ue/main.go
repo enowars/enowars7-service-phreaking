@@ -107,6 +107,7 @@ func handleConnection(logger *zap.Logger, c net.Conn) {
 				}
 			default:
 				log.Warnf("invalid message type (%d) for UE ", msgType)
+				return
 			}
 		}
 	}
@@ -124,7 +125,7 @@ func sendRegistrationRequest(u ue.UE, c net.Conn) error {
 		return err
 	}
 
-	gmm := nas.GmmHeader{Security: false, Mac: [8]byte{}, MessageType: nas.NASAuthRequest, Message: msg}
+	gmm := nas.GmmHeader{Security: false, Mac: [8]byte{}, MessageType: nas.NASRegRequest, Message: msg}
 	return io.SendGmm(c, gmm)
 }
 
