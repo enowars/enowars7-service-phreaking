@@ -45,7 +45,7 @@ func (amf *Amf) HandleConnection(c net.Conn) {
 			log.Infof("HandleConnection timeout for remote: %s", c.RemoteAddr().String())
 			return
 		default:
-			buf, err := io.RecvMsg(c)
+			buf, err := io.Recv(c)
 			if err != nil {
 				if !errors.Is(err, io.EOF) {
 					log.Errorf("Error reading: %w", err)
@@ -93,7 +93,7 @@ func (amf *Amf) handleNGSetupRequest(c net.Conn, buf []byte) (*AmfGNB, error) {
 		return nil, errEncode
 	}
 
-	return amfg, io.SendMsg(c, []byte(bytesRes))
+	return amfg, io.Send(c, []byte(bytesRes))
 }
 
 func (amf *Amf) HandleNGAP(c net.Conn, buf []byte, amfg *AmfGNB) error {
@@ -243,7 +243,7 @@ func (amf *Amf) handlePDUReq(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) er
 			return err
 		}
 
-		return io.SendMsg(c, buf)
+		return io.Send(c, buf)
 	default:
 		return errors.New("pdu type not supported")
 	}
@@ -349,7 +349,7 @@ func (amf *Amf) handlePDUSessionEstRequest(c net.Conn, buf []byte, amfg *AmfGNB,
 		return err
 	}
 
-	return io.SendMsg(c, buf)
+	return io.Send(c, buf)
 }
 
 func handlePDUSessionResourceSetupRequest() {
@@ -426,7 +426,7 @@ func (amf *Amf) handleInitUEMessage(c net.Conn, buf []byte, amfg *AmfGNB) error 
 	}
 
 	amfg.AmfUEs[amfueid] = ue
-	return io.SendMsg(c, downBuf)
+	return io.Send(c, downBuf)
 }
 
 func (amf *Amf) handleNASAuthResponse(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) error {
@@ -458,5 +458,5 @@ func (amf *Amf) handleNASAuthResponse(c net.Conn, buf []byte, amfg *AmfGNB, ue *
 	downTrans := ngap.DownNASTransMsg{AmfUeNgapId: ue.AmfUeNgapId, RanUeNgapId: ue.RanUeNgapId, NasPdu: pdu}
 	downTransBuf, _ := ngap.EncodeMsg(ngap.DownNASTrans, &downTrans)
 
-	return io.SendMsg(c, downTransBuf)
+	return io.Send(c, downTransBuf)
 }

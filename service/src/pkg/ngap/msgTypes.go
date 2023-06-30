@@ -37,6 +37,14 @@ const (
 	LocationReportResponse
 )
 
+type GmmPacket struct {
+	// MobileId MobileIdType
+	Security    bool
+	Mac         [8]byte
+	MessageType MsgType
+	Message     []byte
+}
+
 type NGSetupRequestMsg struct {
 	GranId uint32
 	Tac    uint32

@@ -16,7 +16,7 @@ func handleUeConnection(ueConn net.Conn) {
 
 	for {
 		// msgType := ngap.MsgType(buf[0])
-		reply, err := io.RecvMsg(ueConn)
+		reply, err := io.Recv(ueConn)
 		if err != nil {
 			fmt.Printf("Error reading: %#v\n", err)
 			return
@@ -30,14 +30,14 @@ func handleUeConnection(ueConn net.Conn) {
 
 		fmt.Println("=============================")
 		fmt.Printf("TO CORE: (InitUEMessage + NASRegRequest)\n %s\n", buf)
-		err = io.SendMsg(coreConn, buf)
+		err = io.Send(coreConn, buf)
 		if err != nil {
 			fmt.Printf("Error sending: %#v\n", err)
 			return
 		}
 
 		// AuthReq
-		reply, err = io.RecvMsg(coreConn)
+		reply, err = io.Recv(coreConn)
 		if err != nil {
 			fmt.Printf("Error reading: %#v\n", err)
 			return
@@ -55,13 +55,13 @@ func handleUeConnection(ueConn net.Conn) {
 
 		fmt.Println("=============================")
 		fmt.Printf("TO UE: (NASAuthRequest)\n %s\n", down.NasPdu)
-		err = io.SendMsg(ueConn, down.NasPdu)
+		err = io.Send(ueConn, down.NasPdu)
 		if err != nil {
 			fmt.Printf("Error sending: %#v\n", err)
 			return
 		}
 
-		reply, err = io.RecvMsg(ueConn)
+		reply, err = io.Recv(ueConn)
 		if err != nil {
 			fmt.Printf("Error reading: %#v\n", err)
 			return
@@ -76,7 +76,7 @@ func handleUeConnection(ueConn net.Conn) {
 		up := ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
 		buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
 
-		err = io.SendMsg(coreConn, buf)
+		err = io.Send(coreConn, buf)
 		if err != nil {
 			fmt.Printf("Error sending: %#v\n", err)
 			return
@@ -86,7 +86,7 @@ func handleUeConnection(ueConn net.Conn) {
 		fmt.Printf("TO CORE: (UpNASTrans + NASAuthRes)\n %s\n", buf)
 
 		// SecModeCmd
-		reply, err = io.RecvMsg(coreConn)
+		reply, err = io.Recv(coreConn)
 		if err != nil {
 			fmt.Printf("Error reading: %#v\n", err)
 			return
@@ -105,14 +105,14 @@ func handleUeConnection(ueConn net.Conn) {
 
 		fmt.Println("=============================")
 		fmt.Printf("TO UE: (NASSecurityModeCommand)\n %s\n", down.NasPdu)
-		err = io.SendMsg(ueConn, down.NasPdu)
+		err = io.Send(ueConn, down.NasPdu)
 		if err != nil {
 			fmt.Printf("Error sending: %#v\n", err)
 			return
 		}
 
 		// LocationUpdate
-		reply, err = io.RecvMsg(ueConn)
+		reply, err = io.Recv(ueConn)
 		if err != nil {
 			fmt.Printf("Error reading: %#v\n", err)
 			return
@@ -122,13 +122,13 @@ func handleUeConnection(ueConn net.Conn) {
 
 		up = ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
 		buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
-		io.SendMsg(coreConn, buf)
+		io.Send(coreConn, buf)
 
 		fmt.Println("=============================")
 		fmt.Printf("TO CORE: (UpNASTrans + LocationUpdate)\n %s\n", buf)
 
 		// PDUSessionReq
-		reply, err = io.RecvMsg(ueConn)
+		reply, err = io.Recv(ueConn)
 		if err != nil {
 			fmt.Printf("Error reading: %#v\n", err)
 			return
@@ -138,7 +138,7 @@ func handleUeConnection(ueConn net.Conn) {
 
 		up = ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
 		buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
-		err = io.SendMsg(coreConn, buf)
+		err = io.Send(coreConn, buf)
 		if err != nil {
 			fmt.Printf("Error sending: %#v\n", err)
 			return
@@ -148,7 +148,7 @@ func handleUeConnection(ueConn net.Conn) {
 
 		// PDUSessionAccept
 
-		reply, err = io.RecvMsg(coreConn)
+		reply, err = io.Recv(coreConn)
 		if err != nil {
 			fmt.Printf("Error reading: %#v\n", err)
 			return
@@ -164,7 +164,7 @@ func handleUeConnection(ueConn net.Conn) {
 			return
 		}
 
-		err = io.SendMsg(ueConn, down.NasPdu)
+		err = io.Send(ueConn, down.NasPdu)
 		if err != nil {
 			fmt.Printf("Error sending: %#v\n", err)
 			return
@@ -175,7 +175,7 @@ func handleUeConnection(ueConn net.Conn) {
 
 		// PDUReq
 
-		reply, err = io.RecvMsg(ueConn)
+		reply, err = io.Recv(ueConn)
 		if err != nil {
 			fmt.Printf("Error reading: %#v\n", err)
 			return
@@ -186,14 +186,14 @@ func handleUeConnection(ueConn net.Conn) {
 
 		up = ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
 		buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
-		io.SendMsg(coreConn, buf)
+		io.Send(coreConn, buf)
 
 		fmt.Println("=============================")
 		fmt.Printf("TO CORE: (UpNASTrans + PDUReq)\n %s\n", buf)
 
 		// PDURes
 
-		reply, err = io.RecvMsg(coreConn)
+		reply, err = io.Recv(coreConn)
 		if err != nil {
 			fmt.Printf("Error reading: %#v\n", err)
 			return
@@ -209,7 +209,7 @@ func handleUeConnection(ueConn net.Conn) {
 			return
 		}
 
-		err = io.SendMsg(ueConn, down.NasPdu)
+		err = io.Send(ueConn, down.NasPdu)
 		if err != nil {
 			fmt.Printf("Error sending: %#v\n", err)
 			return
@@ -253,13 +253,13 @@ func main() {
 
 	fmt.Println("=============================")
 	fmt.Printf("TO CORE: (NGSetupRequest)\n %s\n", buf)
-	err = io.SendMsg(coreConn, buf)
+	err = io.Send(coreConn, buf)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	buf, err = io.RecvMsg(coreConn)
+	buf, err = io.Recv(coreConn)
 	if err != nil {
 		fmt.Println(err)
 		return

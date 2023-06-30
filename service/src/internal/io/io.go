@@ -4,11 +4,12 @@ import (
 	"errors"
 	"io"
 	"net"
+	"phreaking/pkg/ngap"
 )
 
 var EOF error = io.EOF
 
-func SendMsg(conn net.Conn, msg []byte) (err error) {
+func Send(conn net.Conn, msg []byte) (err error) {
 	msgLen := uint16(len(msg))
 	buf := make([]byte, 2)
 	buf[0] = uint8(msgLen >> 8)
@@ -24,7 +25,16 @@ func SendMsg(conn net.Conn, msg []byte) (err error) {
 	return nil
 }
 
-func RecvMsg(conn net.Conn) ([]byte, error) {
+func SendGmm(conn net.Conn, gmm ngap.GmmPacket) (err error) {
+	pkt, err := ngap.EncodeMsg(&gmm)
+	if err != nil {
+		return err
+	}
+
+	return Send(conn, pkt)
+}
+
+func Recv(conn net.Conn) ([]byte, error) {
 	buf := make([]byte, 2)
 
 	_, err := conn.Read(buf)
