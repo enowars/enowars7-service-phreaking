@@ -2,6 +2,7 @@ package ue
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"net"
 	"os"
@@ -100,7 +101,7 @@ func (u *UE) HandleNASAuthRequest(c net.Conn, msgbuf []byte) error {
 		return errors.New("cannot decode")
 	}
 
-	if !(string(crypto.IA2(msg.AuthRand)) == string(msg.Auth)) {
+	if !(bytes.Equal(crypto.IA2(msg.AuthRand), msg.Auth)) {
 		return errors.New("cannot authenticate core")
 	}
 
