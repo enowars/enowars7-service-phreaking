@@ -7,10 +7,12 @@ import (
 	"os"
 	"strconv"
 
-	"checker/pkg/crypto"
-	"checker/pkg/io"
-	"checker/pkg/ngap"
-	"checker/pkg/pb"
+	"checker/internal/crypto"
+	"checker/internal/io"
+	"checker/internal/nas"
+	"checker/internal/ngap"
+	"checker/internal/parser"
+	"checker/internal/pb"
 
 	"github.com/enowars/enochecker-go"
 	"github.com/redis/go-redis/v9"
@@ -102,82 +104,109 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 	}()
 
 	setup := ngap.NGSetupRequestMsg{GranId: 0, Tac: 0, Plmn: 0}
-	buf, _ := ngap.EncodeMsg(ngap.NGSetupRequest, &setup)
-
-	err = io.SendMsg(coreConn, buf)
+	err = io.SendNgapMsg(coreConn, ngap.NGSetupRequest, &setup)
 	if err != nil {
 		return err
 	}
 
-	reply, err := io.RecvMsg(coreConn)
+	_, err = io.Recv(coreConn)
 	if err != nil {
 		return err
 	}
 
-	reply, err = io.RecvMsg(ueConn)
+	var gmm nas.GmmHeader
+
+	reply, err := io.Recv(ueConn)
 	if err != nil {
 		return err
 	}
 
-	initUeMsg := ngap.InitUEMessageMsg{NasPdu: reply, RanUeNgapId: 1}
-	buf, _ = ngap.EncodeMsg(ngap.InitUEMessage, &initUeMsg)
+	err = parser.DecodeMsg(reply, &gmm)
+	if err != nil {
+		return err
+	}
 
-	err = io.SendMsg(coreConn, buf)
+	initUeMsg := ngap.InitUEMessageMsg{NasPdu: gmm, RanUeNgapId: 1}
+	err = io.SendNgapMsg(coreConn, ngap.InitUEMessage, &initUeMsg)
 	if err != nil {
 		return err
 	}
 
 	// AuthReq
-	reply, err = io.RecvMsg(coreConn)
+	reply, err = io.Recv(coreConn)
+	if err != nil {
+		return err
+	}
+	var ngapHeader ngap.NgapHeader
+	err = parser.DecodeMsg(reply, &ngapHeader)
 	if err != nil {
 		return err
 	}
 
 	var down ngap.DownNASTransMsg
-	err = ngap.DecodeMsg(reply[1:], &down)
-	if err != nil {
-		return errors.New("cannot decode")
-	}
-
-	err = io.SendMsg(ueConn, down.NasPdu)
+	err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 	if err != nil {
 		return err
 	}
 
-	reply, err = io.RecvMsg(ueConn)
+	err = io.SendGmm(ueConn, down.NasPdu)
 	if err != nil {
 		return err
 	}
+
+	reply, err = io.Recv(ueConn)
+	if err != nil {
+		return err
+	}
+
+	amfUeNgapId := down.AmfUeNgapId
 
 	// AuthRes
-	up := ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: down.AmfUeNgapId}
-	buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
 
-	err = io.SendMsg(coreConn, buf)
+	gmm = nas.GmmHeader{}
+	err = parser.DecodeMsg(reply, &gmm)
+	if err != nil {
+		return err
+	}
+
+	up := ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
+	err = io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
 	if err != nil {
 		return err
 	}
 
 	// SecModeCmd
-	reply, err = io.RecvMsg(coreConn)
+	reply, err = io.Recv(coreConn)
+	if err != nil {
+		return err
+	}
+
+	ngapHeader = ngap.NgapHeader{}
+	err = parser.DecodeMsg(reply, &ngapHeader)
 	if err != nil {
 		return err
 	}
 
 	down = ngap.DownNASTransMsg{}
 
-	err = ngap.DecodeMsg(reply[1:], &down)
+	err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 	if err != nil {
-		return errors.New("cannot decode")
+		return err
 	}
 
-	err = io.SendMsg(ueConn, down.NasPdu)
+	err = io.SendGmm(ueConn, down.NasPdu)
 	if err != nil {
 		return err
 	}
 
 	// LocationUpdate
-	reply, err = io.RecvMsg(ueConn)
+	reply, err = io.Recv(ueConn)
+	if err != nil {
+		return err
+	}
+
+	gmm = nas.GmmHeader{}
+	err = parser.DecodeMsg(reply, &gmm)
 	if err != nil {
 		return err
 	}
@@ -186,12 +215,15 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 
 	key := []byte(string(os.Getenv(keyEnvVar)))
 
-	dec := crypto.DecryptAES(reply[9:], key)
-
-	var loc ngap.LocationUpdateMsg
-	err = ngap.DecodeMsg(dec, &loc)
+	dec, err := crypto.DecryptAES(gmm.Message, key)
 	if err != nil {
-		return errors.New("cannot decode")
+		return err
+	}
+
+	var loc nas.LocationUpdateMsg
+	err = parser.DecodeMsg(dec, &loc)
+	if err != nil {
+		return err
 	}
 	if loc.Location == message.Flag {
 		return nil
@@ -242,25 +274,30 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 	}()
 
 	setup := ngap.NGSetupRequestMsg{GranId: 0, Tac: 0, Plmn: 0}
-	buf, _ := ngap.EncodeMsg(ngap.NGSetupRequest, &setup)
-
-	err = io.SendMsg(coreConn, buf)
+	err = io.SendNgapMsg(coreConn, ngap.NGSetupRequest, &setup)
 	if err != nil {
 		return nil, err
 	}
 
-	reply, err := io.RecvMsg(coreConn)
+	_, err = io.Recv(coreConn)
 	if err != nil {
 		return nil, err
 	}
 
-	reply, err = io.RecvMsg(ueConn)
+	var gmm nas.GmmHeader
+
+	reply, err := io.Recv(ueConn)
 	if err != nil {
 		return nil, err
 	}
 
-	var reg ngap.NASRegRequestMsg
-	err = ngap.DecodeMsg(reply[1:], &reg)
+	err = parser.DecodeMsg(reply, &gmm)
+	if err != nil {
+		return nil, err
+	}
+
+	var reg nas.NASRegRequestMsg
+	err = parser.DecodeMsg(gmm.Message, &reg)
 	if err != nil {
 		return nil, errors.New("cannot decode")
 	}
@@ -268,78 +305,103 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 	// DISABLE EA
 	reg.SecCap.EA = 0
 
-	pdu, _ := ngap.EncodeMsg(ngap.NASRegRequest, &reg)
+	msg, err := parser.EncodeMsg(&reg)
+	if err != nil {
+		return nil, err
+	}
 
-	initUeMsg := ngap.InitUEMessageMsg{NasPdu: pdu, RanUeNgapId: 1}
-	buf, _ = ngap.EncodeMsg(ngap.InitUEMessage, &initUeMsg)
-
-	err = io.SendMsg(coreConn, buf)
+	gmm.Message = msg
+	initUeMsg := ngap.InitUEMessageMsg{NasPdu: gmm, RanUeNgapId: 1}
+	err = io.SendNgapMsg(coreConn, ngap.InitUEMessage, &initUeMsg)
 	if err != nil {
 		return nil, err
 	}
 
 	// AuthReq
-	reply, err = io.RecvMsg(coreConn)
+	reply, err = io.Recv(coreConn)
+	if err != nil {
+		return nil, err
+	}
+	var ngapHeader ngap.NgapHeader
+	err = parser.DecodeMsg(reply, &ngapHeader)
 	if err != nil {
 		return nil, err
 	}
 
 	var down ngap.DownNASTransMsg
-	err = ngap.DecodeMsg(reply[1:], &down)
-	if err != nil {
-		return nil, errors.New("cannot decode")
-	}
-
-	err = io.SendMsg(ueConn, down.NasPdu)
+	err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 	if err != nil {
 		return nil, err
 	}
 
-	reply, err = io.RecvMsg(ueConn)
+	err = io.SendGmm(ueConn, down.NasPdu)
 	if err != nil {
 		return nil, err
 	}
+
+	reply, err = io.Recv(ueConn)
+	if err != nil {
+		return nil, err
+	}
+
+	amfUeNgapId := down.AmfUeNgapId
 
 	// AuthRes
-	up := ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: down.AmfUeNgapId}
-	buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
 
-	err = io.SendMsg(coreConn, buf)
+	gmm = nas.GmmHeader{}
+	err = parser.DecodeMsg(reply, &gmm)
+	if err != nil {
+		return nil, err
+	}
+
+	up := ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
+	err = io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
 	if err != nil {
 		return nil, err
 	}
 
 	// SecModeCmd
-	reply, err = io.RecvMsg(coreConn)
+	reply, err = io.Recv(coreConn)
+	if err != nil {
+		return nil, err
+	}
+
+	ngapHeader = ngap.NgapHeader{}
+	err = parser.DecodeMsg(reply, &ngapHeader)
 	if err != nil {
 		return nil, err
 	}
 
 	down = ngap.DownNASTransMsg{}
 
-	err = ngap.DecodeMsg(reply[1:], &down)
+	err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 	if err != nil {
-		return nil, errors.New("cannot decode")
+		return nil, err
 	}
 
-	err = io.SendMsg(ueConn, down.NasPdu)
+	err = io.SendGmm(ueConn, down.NasPdu)
 	if err != nil {
 		return nil, err
 	}
 
 	// LocationUpdate
-	reply, err = io.RecvMsg(ueConn)
+	reply, err = io.Recv(ueConn)
 	if err != nil {
 		return nil, err
 	}
 
-	var loc ngap.LocationUpdateMsg
-	err = ngap.DecodeMsg(reply[9:], &loc)
+	gmm = nas.GmmHeader{}
+	err = parser.DecodeMsg(reply, &gmm)
 	if err != nil {
-		return nil, errors.New("cannot decode")
+		return nil, err
+	}
+
+	var loc nas.LocationUpdateMsg
+	err = parser.DecodeMsg(gmm.Message, &loc)
+	if err != nil {
+		return nil, err
 	}
 	return enochecker.NewExploitInfo(loc.Location), nil
-
 }
 
 func (h *Handler) PutNoise(ctx context.Context, message *enochecker.TaskMessage) error {
@@ -387,49 +449,57 @@ func (h *Handler) gnb(ctx context.Context, message *enochecker.TaskMessage, port
 	}()
 
 	setup := ngap.NGSetupRequestMsg{GranId: 0, Tac: 0, Plmn: 0}
-	buf, _ := ngap.EncodeMsg(ngap.NGSetupRequest, &setup)
-
-	err = io.SendMsg(coreConn, buf)
+	err = io.SendNgapMsg(coreConn, ngap.NGSetupRequest, &setup)
 	if err != nil {
 		return err
 	}
 
-	reply, err := io.RecvMsg(coreConn)
+	_, err = io.Recv(coreConn)
 	if err != nil {
 		return err
 	}
 
-	reply, err = io.RecvMsg(ueConn)
+	var gmm nas.GmmHeader
+
+	reply, err := io.Recv(ueConn)
 	if err != nil {
 		return err
 	}
 
-	initUeMsg := ngap.InitUEMessageMsg{NasPdu: reply, RanUeNgapId: 1}
-	buf, _ = ngap.EncodeMsg(ngap.InitUEMessage, &initUeMsg)
+	err = parser.DecodeMsg(reply, &gmm)
+	if err != nil {
+		return err
+	}
 
-	err = io.SendMsg(coreConn, buf)
+	initUeMsg := ngap.InitUEMessageMsg{NasPdu: gmm, RanUeNgapId: 1}
+	err = io.SendNgapMsg(coreConn, ngap.InitUEMessage, &initUeMsg)
 	if err != nil {
 		return err
 	}
 
 	// AuthReq
-	reply, err = io.RecvMsg(coreConn)
+	reply, err = io.Recv(coreConn)
+	if err != nil {
+		return err
+	}
+	var ngapHeader ngap.NgapHeader
+	err = parser.DecodeMsg(reply, &ngapHeader)
 	if err != nil {
 		return err
 	}
 
 	var down ngap.DownNASTransMsg
-	err = ngap.DecodeMsg(reply[1:], &down)
-	if err != nil {
-		return errors.New("cannot decode")
-	}
-
-	err = io.SendMsg(ueConn, down.NasPdu)
+	err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 	if err != nil {
 		return err
 	}
 
-	reply, err = io.RecvMsg(ueConn)
+	err = io.SendGmm(ueConn, down.NasPdu)
+	if err != nil {
+		return err
+	}
+
+	reply, err = io.Recv(ueConn)
 	if err != nil {
 		return err
 	}
@@ -437,95 +507,144 @@ func (h *Handler) gnb(ctx context.Context, message *enochecker.TaskMessage, port
 	amfUeNgapId := down.AmfUeNgapId
 
 	// AuthRes
-	up := ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
-	buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
 
-	err = io.SendMsg(coreConn, buf)
+	gmm = nas.GmmHeader{}
+	err = parser.DecodeMsg(reply, &gmm)
+	if err != nil {
+		return err
+	}
+
+	up := ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
+	err = io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
 	if err != nil {
 		return err
 	}
 
 	// SecModeCmd
-	reply, err = io.RecvMsg(coreConn)
+	reply, err = io.Recv(coreConn)
+	if err != nil {
+		return err
+	}
+
+	ngapHeader = ngap.NgapHeader{}
+	err = parser.DecodeMsg(reply, &ngapHeader)
 	if err != nil {
 		return err
 	}
 
 	down = ngap.DownNASTransMsg{}
 
-	err = ngap.DecodeMsg(reply[1:], &down)
+	err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 	if err != nil {
-		return errors.New("cannot decode")
+		return err
 	}
 
-	err = io.SendMsg(ueConn, down.NasPdu)
+	err = io.SendGmm(ueConn, down.NasPdu)
 	if err != nil {
 		return err
 	}
 
 	// LocationUpdate
-	reply, err = io.RecvMsg(ueConn)
+	reply, err = io.Recv(ueConn)
 	if err != nil {
 		return err
 	}
 
-	up = ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
-	buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
-	io.SendMsg(coreConn, buf)
+	gmm = nas.GmmHeader{}
+	err = parser.DecodeMsg(reply, &gmm)
+	if err != nil {
+		return err
+	}
+
+	up = ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
+	err = io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
+	if err != nil {
+		return err
+	}
 
 	// PDUSessionReq
-	reply, err = io.RecvMsg(ueConn)
+	reply, err = io.Recv(ueConn)
 	if err != nil {
 		return err
 	}
 
-	up = ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
-	buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
-	io.SendMsg(coreConn, buf)
+	gmm = nas.GmmHeader{}
+	err = parser.DecodeMsg(reply, &gmm)
+	if err != nil {
+		return err
+	}
+
+	up = ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
+	err = io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
+	if err != nil {
+		return err
+	}
 
 	// PDUSessionAccept
 
-	reply, err = io.RecvMsg(coreConn)
+	reply, err = io.Recv(coreConn)
+	if err != nil {
+		return err
+	}
+
+	ngapHeader = ngap.NgapHeader{}
+	err = parser.DecodeMsg(reply, &ngapHeader)
 	if err != nil {
 		return err
 	}
 
 	down = ngap.DownNASTransMsg{}
-	err = ngap.DecodeMsg(reply[1:], &down)
+
+	err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 	if err != nil {
-		return errors.New("cannot decode")
+		return err
 	}
 
-	err = io.SendMsg(ueConn, down.NasPdu)
+	err = io.SendGmm(ueConn, down.NasPdu)
 	if err != nil {
 		return err
 	}
 
 	// PDUReq
 
-	reply, err = io.RecvMsg(ueConn)
+	reply, err = io.Recv(ueConn)
 	if err != nil {
 		return err
 	}
 
-	up = ngap.UpNASTransMsg{NasPdu: reply, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
-	buf, _ = ngap.EncodeMsg(ngap.UpNASTrans, &up)
-	io.SendMsg(coreConn, buf)
+	gmm = nas.GmmHeader{}
+	err = parser.DecodeMsg(reply, &gmm)
+	if err != nil {
+		return err
+	}
+
+	up = ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
+	err = io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
+	if err != nil {
+		return err
+	}
 
 	// PDURes
 
-	reply, err = io.RecvMsg(coreConn)
+	reply, err = io.Recv(coreConn)
+	if err != nil {
+		return err
+	}
+
+	ngapHeader = ngap.NgapHeader{}
+	err = parser.DecodeMsg(reply, &ngapHeader)
 	if err != nil {
 		return err
 	}
 
 	down = ngap.DownNASTransMsg{}
-	err = ngap.DecodeMsg(reply[1:], &down)
+
+	err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 	if err != nil {
-		return errors.New("cannot decode")
+		return err
 	}
 
-	err = io.SendMsg(ueConn, down.NasPdu)
+	err = io.SendGmm(ueConn, down.NasPdu)
 	if err != nil {
 		return err
 	}

@@ -1,21 +1,12 @@
-package ngap
+package nas
 
 import "github.com/gofrs/uuid"
 
-type MsgType int
+type NasMsgType int
 type AmfUeNgapIdType uuid.UUID
 
 const (
-	// Interface Management Messages
-	NGSetupRequest MsgType = iota
-	NGSetupResponse
-	NGSetupFailure
-	// NAS Transport
-	InitUEMessage
-	DownNASTrans
-	UpNASTrans
-	// NAS-PDU (GMMM)
-	NASRegRequest
+	NASRegRequest NasMsgType = iota
 	NASIdRequest
 	NASIdResponse
 	NASAuthRequest
@@ -37,39 +28,12 @@ const (
 	LocationReportResponse
 )
 
-type NGSetupRequestMsg struct {
-	GranId uint32
-	Tac    uint32
-	Plmn   uint32
-}
-
-type NGSetupResponseMsg struct {
-	AmfName     string
-	GuamPlmn    uint32
-	AmfRegionId uint16
-	AmfSetId    uint32
-	AmfPtr      uint32
-	AmfCap      uint8
-	Plmn        uint32
-}
-
-type InitUEMessageMsg struct {
-	RanUeNgapId uint32
-	NasPdu      []byte
-	// Location
-}
-
-type DownNASTransMsg struct {
-	AmfUeNgapId AmfUeNgapIdType
-	RanUeNgapId uint32
-	NasPdu      []byte
-}
-
-type UpNASTransMsg struct {
-	AmfUeNgapId AmfUeNgapIdType
-	RanUeNgapId uint32
-	NasPdu      []byte
-	// Location
+type GmmHeader struct {
+	// MobileId MobileIdType
+	Security    bool
+	Mac         [8]byte
+	MessageType NasMsgType
+	Message     []byte
 }
 
 type MobileIdType struct {
