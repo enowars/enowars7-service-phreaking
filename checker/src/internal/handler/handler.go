@@ -317,7 +317,7 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 	}
 
 	// DISABLE EA
-	reg.SecCap.EA = 0
+	reg.SecCap.EaCap = 0
 
 	msg, err := parser.EncodeMsg(&reg)
 	if err != nil {

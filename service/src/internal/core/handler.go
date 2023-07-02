@@ -369,11 +369,29 @@ func (amf *Amf) handleNASAuthResponse(c net.Conn, buf []byte, amfg *AmfGNB, ue *
 	amf.Logger.Sugar().Infoln("AUTHENTICATION SUCCESSFULL")
 	ue.Authenticated = true
 
-	// TODO choose best EA/IA
-	ue.EaAlg = ue.SecCap.EA
-	ue.IaAlg = ue.SecCap.IA
+	var EA uint8
+	var IA uint8
+
+	for i := len(nas.EaMaskMap) - 1; i >= 0; i-- {
+		alg := nas.EaMaskMap[i]
+		if ue.SecCap.EaCap&alg != 0 {
+			EA = uint8(i)
+			break
+		}
+	}
+
+	for i := len(nas.IaMaskMap) - 1; i >= 0; i-- {
+		alg := nas.IaMaskMap[i]
+		if ue.SecCap.IaCap&alg != 0 {
+			IA = uint8(i)
+			break
+		}
+	}
+
+	ue.EaAlg = EA
+	ue.IaAlg = IA
 	secModeCmd := nas.NASSecurityModeCommandMsg{SecHeader: 1, EaAlg: ue.EaAlg,
-		IaAlg: ue.IaAlg, SecCap: ue.SecCap,
+		IaAlg: ue.IaAlg, ReplaySecCap: ue.SecCap,
 	}
 	secModeMsg, mac, err := nas.BuildMessagePlain(&secModeCmd)
 	if err != nil {
