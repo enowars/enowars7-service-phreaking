@@ -16,6 +16,9 @@ jobs:
       ENOCHECKER_TEST_CHECKER_PORT: 3303
 
     steps:
+      - name: Remove service data
+        run: |
+          (cd service && sudo -i rm -rf data)
       - uses: actions/checkout@v2
         with:
           submodules: recursive
@@ -60,7 +63,3 @@ jobs:
         run: |
           (cd service && docker-compose kill)
           (cd checker && docker-compose kill)
-      - name: Remove service data
-        if: failure() || success()
-        run: |
-          (cd service && rm -rf data)
