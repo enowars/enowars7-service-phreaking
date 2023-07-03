@@ -16,9 +16,9 @@ jobs:
       ENOCHECKER_TEST_CHECKER_PORT: 3303
 
     steps:
-      - name: Remove service data
+      - name: Chown user
         run: |
-          (cd service && sudo -i rm -rf data)
+          sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v2
         with:
           submodules: recursive
