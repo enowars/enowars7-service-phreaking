@@ -474,7 +474,7 @@ func (h *Handler) checkNullEnc(ctx context.Context, message *enochecker.TaskMess
 
 	regMsg := nas.NASRegRequestMsg{SecHeader: 0,
 		MobileId: nas.MobileIdType{Mcc: 0, Mnc: 0, ProtecScheme: 0, HomeNetPki: 0, Msin: 0},
-		SecCap:   nas.SecCapType{EA: 0, IA: 1},
+		SecCap:   nas.SecCapType{EaCap: nas.EA0, IaCap: nas.IA1},
 	}
 
 	msg, err := parser.EncodeMsg(&regMsg)
