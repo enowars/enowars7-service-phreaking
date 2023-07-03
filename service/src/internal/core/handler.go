@@ -4,9 +4,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
-	"net/http"
 	"phreaking/internal/crypto"
 	"phreaking/internal/io"
 	"phreaking/pkg/nas"
@@ -198,14 +196,33 @@ func (amf *Amf) handlePDUReq(c net.Conn, buf []byte, amfg *AmfGNB, ue *AmfUE) er
 
 	switch pduType {
 	case 0:
-		res, err := http.Get(string(msg.Request))
-		if err != nil {
-			return err
-		}
-		response, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return err
-		}
+		/*
+			res, err := http.Get(string(msg.Request))
+			if err != nil {
+				return err
+			}
+
+			response, err := ioutil.ReadAll(res.Body)
+			if err != nil {
+				return err
+			}
+		*/
+		response := ` 
+		<!DOCTYPE html>
+			<html>
+			<head>
+			</head>
+			<body>
+				<h1>Web page</h1>
+
+				<div>
+					<p>
+						HELLO FROM A UNIX SYSTEM	
+					</p>
+				</div>
+			</body>
+			</html>
+		`
 		pduRes := nas.PDUResMsg{PduSesId: msg.PduSesId, Response: []byte(response)}
 		pduResMsg, mac, err := nas.BuildMessage(ue.EaAlg, ue.IaAlg, &pduRes)
 		if err != nil {
