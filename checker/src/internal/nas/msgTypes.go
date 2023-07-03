@@ -28,6 +28,63 @@ const (
 	LocationReportResponse
 )
 
+type EaMask uint8
+
+const (
+	EA0 EaMask = 1 << iota
+	EA1
+	EA2
+	EA3
+	EA4
+	EA5
+	EA6
+	EA7
+)
+
+var EaMaskMap = []EaMask{
+	EA0,
+	EA1,
+	EA2,
+	EA3,
+	EA4,
+	EA5,
+	EA6,
+	EA7,
+}
+
+type IaMask uint8
+
+const (
+	IA0 IaMask = 1 << iota
+	IA1
+	IA2
+	IA3
+	IA4
+	IA5
+	IA6
+	IA7
+)
+
+var IaMaskMap = []IaMask{
+	IA0,
+	IA1,
+	IA2,
+	IA3,
+	IA4,
+	IA5,
+	IA6,
+	IA7,
+}
+
+type SecCapType struct {
+	// 	1  |  2  | .. |  8
+	// EA0 | EA1 | .. | EA7
+	EaCap EaMask
+	// 	1  |  2  | .. |  8
+	// IA0 | IA1 | .. | IA7
+	IaCap IaMask
+}
+
 type GmmHeader struct {
 	// MobileId MobileIdType
 	Security    bool
@@ -45,15 +102,6 @@ type MobileIdType struct {
 	ProtecScheme uint8
 	HomeNetPki   uint8
 	Msin         uint
-}
-
-type SecCapType struct {
-	// 	8  |  7  | .. |  1
-	// EA0 | EA1 | .. | EA7
-	EA uint8
-	// 	8  |  7  | .. |  1
-	// IA0 | IA1 | .. | IA7
-	IA uint8
 }
 
 type NASRegRequestMsg struct {
@@ -78,10 +126,10 @@ type NASAuthResponseMsg struct {
 }
 
 type NASSecurityModeCommandMsg struct {
-	SecHeader uint8
-	EaAlg     uint8
-	IaAlg     uint8
-	SecCap    SecCapType
+	SecHeader    uint8
+	EaAlg        uint8
+	IaAlg        uint8
+	ReplaySecCap SecCapType
 }
 
 type PDUSessionEstRequestMsg struct {
