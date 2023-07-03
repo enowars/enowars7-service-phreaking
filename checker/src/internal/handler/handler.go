@@ -45,8 +45,21 @@ func New(log *zap.Logger, db *redis.Client) *Handler {
 	}
 }
 
+var roundCounter int
+
+func getPortNum() (port string) {
+	portNum := strconv.Itoa(int(roundCounter % 10))
+	return portNum
+}
+
+func incPortNum() {
+	roundCounter++
+	roundCounter = roundCounter % 10
+}
+
 func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) (*enochecker.HandlerInfo, error) {
-	portNum := strconv.Itoa(int(message.CurrentRoundId % 10))
+	incPortNum()
+	portNum := getPortNum()
 	port := "993" + portNum
 	var conn *grpc.ClientConn
 	conn, err := grpc.Dial(message.Address+":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -256,7 +269,7 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 		return nil, err
 	}
 
-	portNum := strconv.Itoa(int(message.CurrentRoundId % 10))
+	portNum := getPortNum()
 	port := "606" + portNum
 
 	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
@@ -406,7 +419,7 @@ func (h *Handler) Exploit(ctx context.Context, message *enochecker.TaskMessage) 
 }
 
 func (h *Handler) PutNoise(ctx context.Context, message *enochecker.TaskMessage) error {
-	portNum := strconv.Itoa(int(message.CurrentRoundId % 10))
+	portNum := getPortNum()
 	port := "606" + portNum
 	if err := h.db.Set(ctx, message.TaskChainId, port, 0).Err(); err != nil {
 		h.logger.Error(err.Error())
