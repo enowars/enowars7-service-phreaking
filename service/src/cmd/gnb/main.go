@@ -25,6 +25,8 @@ func handleUeConnection(ueConn net.Conn) {
 			return
 		}
 
+		fmt.Printf("\nSuccessfully connected to UE\n\n")
+
 		fmt.Println("=============================")
 		fmt.Printf("FROM UE: (NASRegRequest)\n %s\n", reply)
 
@@ -35,7 +37,9 @@ func handleUeConnection(ueConn net.Conn) {
 		}
 
 		initUeMsg := ngap.InitUEMessageMsg{NasPdu: gmm, RanUeNgapId: 1}
-		fmt.Printf("TO CORE: (InitUEMessage + NASRegRequest)\n %s\n", initUeMsg)
+		buf, _ := parser.EncodeMsg(&initUeMsg)
+		fmt.Println("=============================")
+		fmt.Printf("TO CORE: (InitUEMessage + NASRegRequest)\n %s\n", buf)
 		err = io.SendNgapMsg(coreConn, ngap.InitUEMessage, &initUeMsg)
 		if err != nil {
 			fmt.Printf("Error sending: %#v\n", err)
@@ -65,8 +69,9 @@ func handleUeConnection(ueConn net.Conn) {
 			return
 		}
 
+		buf, _ = parser.EncodeMsg(&down.NasPdu)
 		fmt.Println("=============================")
-		fmt.Printf("TO UE: (NASAuthRequest)\n %s\n", down.NasPdu)
+		fmt.Printf("TO UE: (NASAuthRequest)\n %s\n", buf)
 		err = io.SendGmm(ueConn, down.NasPdu)
 		if err != nil {
 			fmt.Printf("Error sending: %#v\n", err)
@@ -81,7 +86,6 @@ func handleUeConnection(ueConn net.Conn) {
 
 		fmt.Println("=============================")
 		fmt.Printf("FROM UE: (NASAuthRes)\n %s\n", reply)
-
 		amfUeNgapId := down.AmfUeNgapId
 
 		// AuthRes
@@ -100,8 +104,9 @@ func handleUeConnection(ueConn net.Conn) {
 			return
 		}
 
+		buf, _ = parser.EncodeMsg(&up)
 		fmt.Println("=============================")
-		fmt.Printf("TO CORE: (UpNASTrans + NASAuthRes)\n %s\n", up)
+		fmt.Printf("TO CORE: (UpNASTrans + NASAuthRes)\n %s\n", buf)
 
 		// SecModeCmd
 		reply, err = io.Recv(coreConn)
@@ -128,8 +133,9 @@ func handleUeConnection(ueConn net.Conn) {
 			return
 		}
 
+		buf, _ = parser.EncodeMsg(&down.NasPdu)
 		fmt.Println("=============================")
-		fmt.Printf("TO UE: (NASSecurityModeCommand)\n %s\n", down.NasPdu)
+		fmt.Printf("TO UE: (NASSecurityModeCommand)\n %s\n", buf)
 		err = io.SendGmm(ueConn, down.NasPdu)
 		if err != nil {
 			fmt.Printf("Error sending: %#v\n", err)
@@ -159,8 +165,9 @@ func handleUeConnection(ueConn net.Conn) {
 			return
 		}
 
+		buf, _ = parser.EncodeMsg(&up)
 		fmt.Println("=============================")
-		fmt.Printf("TO CORE: (UpNASTrans + LocationUpdate)\n %s\n", up)
+		fmt.Printf("TO CORE: (UpNASTrans + LocationUpdate)\n %s\n", buf)
 
 		// PDUSessionReq
 		reply, err = io.Recv(ueConn)
@@ -185,7 +192,8 @@ func handleUeConnection(ueConn net.Conn) {
 			return
 		}
 		fmt.Println("=============================")
-		fmt.Printf("TO CORE: (UpNASTrans + PDUSessionEstRequest)\n %s\n", up)
+		buf, _ = parser.EncodeMsg(&up)
+		fmt.Printf("TO CORE: (UpNASTrans + PDUSessionEstRequest)\n %s\n", buf)
 
 		// PDUSessionAccept
 
@@ -219,8 +227,9 @@ func handleUeConnection(ueConn net.Conn) {
 			return
 		}
 
+		buf, _ = parser.EncodeMsg(&down.NasPdu)
 		fmt.Println("=============================")
-		fmt.Printf("TO UE: (PDUSessionEstResponse)\n %s\n", down.NasPdu)
+		fmt.Printf("TO UE: (PDUSessionEstResponse)\n %s\n", buf)
 
 		// PDUReq
 
@@ -247,8 +256,9 @@ func handleUeConnection(ueConn net.Conn) {
 			return
 		}
 
+		buf, _ = parser.EncodeMsg(&up)
 		fmt.Println("=============================")
-		fmt.Printf("TO CORE: (UpNASTrans + PDUReq)\n %s\n", up)
+		fmt.Printf("TO CORE: (UpNASTrans + PDUReq)\n %s\n", buf)
 
 		// PDURes
 
@@ -282,8 +292,9 @@ func handleUeConnection(ueConn net.Conn) {
 			return
 		}
 
+		buf, _ = parser.EncodeMsg(&down.NasPdu)
 		fmt.Println("=============================")
-		fmt.Printf("TO UE: (PDURes)\n %s\n", down.NasPdu)
+		fmt.Printf("TO UE: (PDURes)\n %s\n", buf)
 
 		return
 	}
@@ -291,7 +302,10 @@ func handleUeConnection(ueConn net.Conn) {
 }
 
 func main() {
-	fmt.Println("5Go gNB tool - your friendly fake basestation")
+	fmt.Printf("\n===== 5Go gNB jammer =====\n\n")
+	fmt.Println("Bip bop... overpowering nearest basestations....")
+	fmt.Println("CORE <-X-> gNB <-X-> UE")
+	fmt.Printf("Creating fake basetation...\n\n")
 	fmt.Println("Enter 5Go CORE address: <IP:PORT>")
 	reader := bufio.NewReader(os.Stdin)
 	addr, err := reader.ReadString('\n')
@@ -334,6 +348,8 @@ func main() {
 	fmt.Println("=============================")
 	fmt.Printf("FROM CORE: (NGSetupResponse)\n %s\n", buf)
 
+	fmt.Println("=============================")
+	fmt.Printf("\nSuccessfully connected to CORE\n\n")
 	fmt.Println("Enter 5Go UE address: <IP:PORT>")
 	reader = bufio.NewReader(os.Stdin)
 	addr, err = reader.ReadString('\n')
