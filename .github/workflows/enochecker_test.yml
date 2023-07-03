@@ -60,3 +60,7 @@ jobs:
         run: |
           (cd service && docker-compose kill)
           (cd checker && docker-compose kill)
+      - name: Remove service data
+        if: failure() || success()
+        run: |
+          (cd service && rm -rf data)
