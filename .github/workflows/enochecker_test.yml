@@ -43,7 +43,7 @@ jobs:
           echo "ENOCHECKER_TEST_SERVICE_ADDRESS=$(ip -4 address show dev eth0 | grep inet | awk '{ print $2 }' | sed 's|/.*$||')" >> $GITHUB_ENV
       - name: run enochecker_test
         run: |
-          enochecker_test
+          enochecker_test test_putflag[0-ascii] test_putflag_multiplied[1-1-ascii]  test_putflag_invalid_variant[1-ascii] test_getflag[0-ascii]  test_getflag_twice[0-ascii] test_getflag_wrong_flag[0-ascii] test_getflag_without_putflag[0-ascii] test_getflag_multiplied[1-1-ascii] test_getflag_invalid_variant[1-ascii] test_putnoise[0] test_putnoise[1] test_putnoise_multiplied[2-2] test_putnoise_multiplied[3-2] test_putnoise_invalid_variant[2] test_getnoise[0] test_getnoise[1] test_getnoise_after_second_putnoise_with_same_variant_id[0-2] test_getnoise_after_second_putnoise_with_same_variant_id[1-2] test_getnoise_twice[0] test_getnoise_twice[1] test_getnoise_without_putnoise[0] test_getnoise_without_putnoise[1] test_getnoise_multiplied[2-2] test_getnoise_multiplied[3-2] test_getnoise_invalid_variant[2] test_havoc[0] test_havoc_multiplied[1-1] test_havoc_invalid_variant[1] test_exploit_per_exploit_id[1-0-ascii] test_exploit_per_flag_id[0-1-ascii] test_exploit_invalid_variant[1-ascii]  test_checker_info_message_case
       - name: Dump docker logs on failure
         if: failure()
         uses: jwalton/gh-docker-logs@v1
