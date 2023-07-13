@@ -47,7 +47,7 @@ func handleConnection(logger *zap.Logger, c net.Conn) {
 			buf, err := io.Recv(c)
 			if err != nil {
 				if !errors.Is(err, io.EOF) {
-					log.Errorf("Error reading: %w", err)
+					log.Warnf("EOF: %s", c.RemoteAddr().String())
 				}
 				return
 			}
