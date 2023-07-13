@@ -44,7 +44,7 @@ jobs:
         if: github.ref_name != 'fixed'
         run: |
           source venv/bin/activate
-          enochecker_test test_getflag_twice test_getnoise_twice test_getflag_wrong_flag test_getnoise test_putflag test_getnoise_twice test_getnoise test_getflag test_getflag_multiplied test_exploit_per_exploit_id  test_exploit_per_flag_id  test_getnoise_multiplied test_getnoise_after_second_putnoise_with_same_variant_id test_getnoise_multiplied test_putflag_multiplied test_getnoise_without_putnoise test_getnoise_without_putnoise test_putnoise_invalid_variant test_putnoise test_getflag_without_putflag test_getflag_invalid_variant test_putnoise_multiplied test_putnoise test_putflag_invalid_variant test_havoc_multiplied test_putnoise_multiplied test_exploit_invalid_variant test_havoc_invalid_variant test_getnoise_invalid_variant
+          enochecker_test
       - name: Dump docker logs on failure
         if: failure()
         uses: jwalton/gh-docker-logs@v1
