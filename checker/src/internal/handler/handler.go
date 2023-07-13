@@ -418,7 +418,7 @@ func (h *Handler) PutNoise(ctx context.Context, message *enochecker.TaskMessage)
 func (h *Handler) GetNoise(ctx context.Context, message *enochecker.TaskMessage) error {
 	port, err := h.db.Get(ctx, message.TaskChainId).Result()
 	if err != nil {
-		return enochecker.NewMumbleError(errors.New("put flag was not called beforehand"))
+		return enochecker.NewMumbleError(errors.New("put noise was not called beforehand"))
 	}
 	switch message.VariantId {
 	case 0:

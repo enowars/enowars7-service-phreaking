@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main
+      - fixed
   pull_request:
     branches:
       - main
+      - fixed
 
 jobs:
   build:
@@ -25,8 +27,10 @@ jobs:
           python-version: 3.9
       - name: Install enochecker_test
         run: |
+          python -m venv venv
+          source venv/bin/activate
           python -m pip install --upgrade pip
-          pip install enochecker-test
+          pip install git+https://github.com/fwc/enochecker_test@45aaadd2ae09867715bf7ad8087d562dad17207f
       - name: start service
         run: |
           cd service
@@ -39,8 +43,18 @@ jobs:
         run: |
           echo "ENOCHECKER_TEST_SERVICE_ADDRESS=$(ip -4 address show dev eth0 | grep inet | awk '{ print $2 }' | sed 's|/.*$||')" >> $GITHUB_ENV
       - name: run enochecker_test
+        if: github.ref_name != 'fixed'
         run: |
+          source venv/bin/activate
           enochecker_test test_getflag_twice test_getnoise_twice test_getflag_wrong_flag test_getnoise test_putflag test_getnoise_twice test_getnoise test_getflag test_getflag_multiplied test_exploit_per_exploit_id  test_exploit_per_flag_id  test_getnoise_multiplied test_getnoise_after_second_putnoise_with_same_variant_id test_getnoise_multiplied test_putflag_multiplied test_getnoise_without_putnoise test_getnoise_without_putnoise test_putnoise_invalid_variant test_putnoise test_getflag_without_putflag test_getflag_invalid_variant test_putnoise_multiplied test_putnoise test_putflag_invalid_variant test_havoc_multiplied test_putnoise_multiplied test_exploit_invalid_variant test_havoc_invalid_variant test_getnoise_invalid_variant
+      - name: run enochecker_test without exploit
+        if: github.ref_name == 'fixed'
+        run: |
+          source venv/bin/activate
+          enochecker_test "not exploit"
+      - name: ensure run on main or fixed
+        if: github.ref_name != 'main' && github.ref_name != 'fixed'
+        run: exit 1
       - name: Dump docker logs on failure
         if: failure()
         uses: jwalton/gh-docker-logs@v1
