@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"phreaking/internal/crypto"
 	"phreaking/internal/io"
 	"phreaking/internal/ue"
@@ -133,6 +134,12 @@ func main() {
 	logger := zap.Must(zap.NewDevelopment())
 	defer logger.Sync()
 	log := logger.Sugar()
+
+	readFile, err := os.Create("/service/data/location.data")
+	if err != nil {
+		log.Fatalf("Could not create location file")
+	}
+	readFile.Close()
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9930))
 	if err != nil {
