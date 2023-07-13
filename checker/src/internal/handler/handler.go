@@ -3,7 +3,9 @@ package handler
 import (
 	"bytes"
 	"context"
+	crand "crypto/rand"
 	"errors"
+	mrand "math/rand"
 	"net"
 	"os"
 	"strconv"
@@ -16,6 +18,7 @@ import (
 	"checker/internal/pb"
 
 	"github.com/enowars/enochecker-go"
+	"github.com/gofrs/uuid"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -27,7 +30,7 @@ var serviceInfo = &enochecker.InfoMessage{
 	ServiceName:     "phreaking",
 	FlagVariants:    1,
 	NoiseVariants:   2,
-	HavocVariants:   1,
+	HavocVariants:   2,
 	ExploitVariants: 1,
 }
 
@@ -858,5 +861,99 @@ func (h *Handler) gnb(ctx context.Context, message *enochecker.TaskMessage, port
 }
 
 func (h *Handler) Havoc(ctx context.Context, message *enochecker.TaskMessage) error {
+	portNum := strconv.Itoa(int(message.CurrentRoundId % 10))
+	port := "606" + portNum
+	switch message.VariantId {
+	case 0:
+		return h.randomData(ctx, message, port)
+	case 1:
+		return h.randomGmm(ctx, message, port)
+	}
+
+	return ErrVariantNotFound
+}
+
+func (h *Handler) getRandomBytes(maxSize int) []byte {
+	length := mrand.Intn(maxSize)
+	buf := make([]byte, length)
+	_, err := crand.Read(buf)
+	if err != nil {
+		h.logger.Sugar().Warnf("error while generating random bytes for havoc: %s", err)
+	}
+	return buf
+}
+
+func (h *Handler) randomData(ctx context.Context, message *enochecker.TaskMessage, port string) error {
+	coretcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":3399")
+	if err != nil {
+		return err
+	}
+
+	coreConn, err := net.DialTCP("tcp", nil, coretcpAddr)
+	if err != nil {
+		return err
+	}
+
+	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
+	if err != nil {
+		return err
+	}
+
+	ueConn, err := net.DialTCP("tcp", nil, uetcpAddr)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		coreConn.Close()
+		ueConn.Close()
+	}()
+
+	for i := 0; i < mrand.Intn(3); i++ {
+		io.Send(coreConn, h.getRandomBytes(252))
+		io.Send(ueConn, h.getRandomBytes(252))
+	}
+	return nil
+}
+
+func (h *Handler) randomGmm(ctx context.Context, message *enochecker.TaskMessage, port string) error {
+	coretcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":3399")
+	if err != nil {
+		return err
+	}
+
+	coreConn, err := net.DialTCP("tcp", nil, coretcpAddr)
+	if err != nil {
+		return err
+	}
+
+	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
+	if err != nil {
+		return err
+	}
+
+	ueConn, err := net.DialTCP("tcp", nil, uetcpAddr)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		coreConn.Close()
+		ueConn.Close()
+	}()
+
+	_, _ = io.Recv(ueConn)
+
+	for i := 0; i < mrand.Intn(3); i++ {
+		gmm := nas.GmmHeader{Security: mrand.Intn(1) == 1,
+			Mac:         [8]byte(h.getRandomBytes(8)),
+			MessageType: nas.NasMsgType(mrand.Intn(30)),
+			Message:     h.getRandomBytes((252))}
+
+		uuid, _ := uuid.NewV4()
+		up := ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: mrand.Uint32(), AmfUeNgapId: ngap.AmfUeNgapIdType(uuid)}
+		io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
+		io.SendGmm(ueConn, gmm)
+	}
 	return nil
 }
