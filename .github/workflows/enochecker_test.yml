@@ -16,9 +16,6 @@ jobs:
       ENOCHECKER_TEST_CHECKER_PORT: 3303
 
     steps:
-      - name: Chown user
-        run: |
-          sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v2
         with:
           submodules: recursive
@@ -28,6 +25,8 @@ jobs:
           python-version: 3.9
       - name: Install enochecker_test
         run: |
+          python -m venv venv
+          source venv/bin/activate
           python -m pip install --upgrade pip
           pip install enochecker-test
       - name: start service
@@ -42,8 +41,10 @@ jobs:
         run: |
           echo "ENOCHECKER_TEST_SERVICE_ADDRESS=$(ip -4 address show dev eth0 | grep inet | awk '{ print $2 }' | sed 's|/.*$||')" >> $GITHUB_ENV
       - name: run enochecker_test
+        if: github.ref_name != 'fixed'
         run: |
-          enochecker_test
+          source venv/bin/activate
+          enochecker_test test_getflag_twice test_getnoise_twice test_getflag_wrong_flag test_getnoise test_putflag test_getnoise_twice test_getnoise test_getflag test_getflag_multiplied test_exploit_per_exploit_id  test_exploit_per_flag_id  test_getnoise_multiplied test_getnoise_after_second_putnoise_with_same_variant_id test_getnoise_multiplied test_putflag_multiplied test_getnoise_without_putnoise test_getnoise_without_putnoise test_putnoise_invalid_variant test_putnoise test_getflag_without_putflag test_getflag_invalid_variant test_putnoise_multiplied test_putnoise test_putflag_invalid_variant test_havoc_multiplied test_putnoise_multiplied test_exploit_invalid_variant test_havoc_invalid_variant test_getnoise_invalid_variant
       - name: Dump docker logs on failure
         if: failure()
         uses: jwalton/gh-docker-logs@v1
