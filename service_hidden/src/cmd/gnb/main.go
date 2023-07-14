@@ -36,7 +36,31 @@ func handleUeConnection(ueConn net.Conn) {
 			return
 		}
 
-		initUeMsg := ngap.InitUEMessageMsg{NasPdu: gmm, RanUeNgapId: 1}
+		var reg nas.NASRegRequestMsg
+		err = parser.DecodeMsg(gmm.Message, &reg)
+		if err != nil {
+			fmt.Printf("Error decoding: %#v\n", err)
+			return
+		}
+
+		//fmt.Printf("FROM UE: (NASRegRequest)\n %s\n", reg)
+
+		newreg := nas.NASRegRequestMsg{SecHeader: reg.SecHeader, MobileId: reg.MobileId}
+		newreg.SecCap.EaCap = reg.SecCap.EaCap
+		newreg.SecCap.IaCap = reg.SecCap.IaCap
+
+		msg, err := parser.EncodeMsg(&newreg)
+		if err != nil {
+			fmt.Printf("Error encoding NASRegRequest: %#v\n", err)
+			return
+		}
+
+		newgmm := nas.GmmHeader{}
+		newgmm.MessageType = gmm.MessageType
+		newgmm.Mac = gmm.Mac
+		newgmm.Message = msg
+
+		initUeMsg := ngap.InitUEMessageMsg{NasPdu: newgmm, RanUeNgapId: 1}
 		buf, _ := parser.EncodeMsg(&initUeMsg)
 		fmt.Println("=============================")
 		fmt.Printf("TO CORE: (InitUEMessage + NASRegRequest)\n %s\n", buf)
