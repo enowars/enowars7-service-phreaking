@@ -910,8 +910,14 @@ func (h *Handler) randomData(ctx context.Context, message *enochecker.TaskMessag
 	}()
 
 	for i := 0; i < mrand.Intn(3); i++ {
-		io.Send(coreConn, h.getRandomBytes(252))
-		io.Send(ueConn, h.getRandomBytes(252))
+		err = io.Send(coreConn, h.getRandomBytes(252))
+		if err != nil {
+			break
+		}
+		err = io.Send(ueConn, h.getRandomBytes(252))
+		if err != nil {
+			break
+		}
 	}
 	return nil
 }
@@ -952,8 +958,14 @@ func (h *Handler) randomGmm(ctx context.Context, message *enochecker.TaskMessage
 
 		uuid, _ := uuid.NewV4()
 		up := ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: mrand.Uint32(), AmfUeNgapId: ngap.AmfUeNgapIdType(uuid)}
-		io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
-		io.SendGmm(ueConn, gmm)
+		err = io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
+		if err != nil {
+			break
+		}
+		err = io.SendGmm(ueConn, gmm)
+		if err != nil {
+			break
+		}
 	}
 	return nil
 }
