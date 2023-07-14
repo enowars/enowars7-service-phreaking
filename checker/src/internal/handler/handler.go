@@ -948,11 +948,16 @@ func (h *Handler) randomGmm(ctx context.Context, message *enochecker.TaskMessage
 		ueConn.Close()
 	}()
 
-	_, _ = io.Recv(ueConn)
+	_, err = io.Recv(ueConn)
+	if err != nil {
+		return err
+	}
 
 	for i := 0; i < mrand.Intn(3); i++ {
+		macbuf := make([]byte, 8)
+		_, err := crand.Read(macbuf)
 		gmm := nas.GmmHeader{Security: mrand.Intn(1) == 1,
-			Mac:         [8]byte(h.getRandomBytes(8)),
+			Mac:         [8]byte(macbuf),
 			MessageType: nas.NasMsgType(mrand.Intn(30)),
 			Message:     h.getRandomBytes((252))}
 
@@ -962,6 +967,14 @@ func (h *Handler) randomGmm(ctx context.Context, message *enochecker.TaskMessage
 		if err != nil {
 			break
 		}
+
+		macbuf = make([]byte, 8)
+		_, err = crand.Read(macbuf)
+		gmm = nas.GmmHeader{Security: mrand.Intn(1) == 1,
+			Mac:         [8]byte(macbuf),
+			MessageType: nas.NasMsgType(mrand.Intn(30)),
+			Message:     h.getRandomBytes((252))}
+
 		err = io.SendGmm(ueConn, gmm)
 		if err != nil {
 			break
