@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	crand "crypto/rand"
 	"errors"
 	mrand "math/rand"
@@ -29,7 +30,7 @@ import (
 var serviceInfo = &enochecker.InfoMessage{
 	ServiceName:     "phreaking",
 	FlagVariants:    1,
-	NoiseVariants:   2,
+	NoiseVariants:   3,
 	HavocVariants:   2,
 	ExploitVariants: 1,
 }
@@ -427,13 +428,15 @@ func (h *Handler) GetNoise(ctx context.Context, message *enochecker.TaskMessage)
 	case 0:
 		return h.gnb(ctx, message, port)
 	case 1:
-		return h.checkNullEnc(ctx, message)
+		return h.checkNullEncCore(ctx, message)
+	case 2:
+		return h.checkNullEncUE(ctx, message, port)
 	}
 
 	return ErrVariantNotFound
 }
 
-func (h *Handler) checkNullEnc(ctx context.Context, message *enochecker.TaskMessage) error {
+func (h *Handler) checkNullEncCore(ctx context.Context, message *enochecker.TaskMessage) error {
 	keyEnvVar := "PHREAKING_" + strconv.Itoa(int(message.TeamId)) + "_SIM_KEY"
 	key := []byte(string(os.Getenv(keyEnvVar)))
 
@@ -628,6 +631,102 @@ func (h *Handler) checkNullEnc(ctx context.Context, message *enochecker.TaskMess
 		return err
 	}
 	return nil
+}
+
+func (h *Handler) checkNullEncUE(ctx context.Context, message *enochecker.TaskMessage, port string) error {
+	keyEnvVar := "PHREAKING_" + strconv.Itoa(int(message.TeamId)) + "_SIM_KEY"
+	key := []byte(string(os.Getenv(keyEnvVar)))
+
+	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
+	if err != nil {
+		return err
+	}
+
+	ueConn, err := net.DialTCP("tcp", nil, uetcpAddr)
+	if err != nil {
+		return err
+	}
+
+	defer ueConn.Close()
+
+	var gmm nas.GmmHeader
+
+	regreqmsg, err := io.Recv(ueConn)
+	if err != nil {
+		return err
+	}
+
+	err = parser.DecodeMsg(regreqmsg, &gmm)
+	if err != nil {
+		return err
+	}
+
+	var regreq nas.NASRegRequestMsg
+	err = parser.DecodeMsg(gmm.Message, &regreq)
+	if err != nil {
+		return err
+	}
+
+	sec := regreq.SecCap
+
+	randToken := make([]byte, 32)
+	rand.Read(randToken)
+
+	authRand := make([]byte, 32)
+	rand.Read(authRand)
+
+	auth := crypto.IA2(authRand, key)
+
+	authReq := nas.NASAuthRequestMsg{SecHeader: 0, Rand: randToken, AuthRand: authRand, Auth: auth}
+
+	authReqbuf, mac, err := nas.BuildMessagePlain(&authReq)
+	if err != nil {
+		return err
+	}
+
+	gmm = nas.GmmHeader{false, mac, nas.NASAuthRequest, authReqbuf}
+
+	io.SendGmm(ueConn, gmm)
+
+	_, err = io.Recv(ueConn)
+	if err != nil {
+		return err
+	}
+
+	ia := mrand.Intn(4)
+	if ia == 0 {
+		ia = 1
+	}
+
+	secModeCmd := nas.NASSecurityModeCommandMsg{SecHeader: 1, EaAlg: 0,
+		IaAlg: 1, ReplaySecCap: sec,
+	}
+	secModeMsg, mac, err := nas.BuildMessagePlain(&secModeCmd)
+	if err != nil {
+		return err
+	}
+
+	gmm = nas.GmmHeader{false, mac, nas.NASSecurityModeCommand, secModeMsg}
+	io.SendGmm(ueConn, gmm)
+
+	locupdatemsg, err := io.Recv(ueConn)
+	if err != nil {
+		return err
+	}
+
+	err = parser.DecodeMsg(locupdatemsg, &gmm)
+	if err != nil {
+		return err
+	}
+
+	var loc nas.LocationUpdateMsg
+	err = parser.DecodeMsg(gmm.Message, &loc)
+	if err != nil {
+		return errors.New("UE null encryption not working")
+	}
+
+	return nil
+
 }
 
 func (h *Handler) gnb(ctx context.Context, message *enochecker.TaskMessage, port string) error {
