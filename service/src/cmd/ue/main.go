@@ -31,7 +31,7 @@ func handleConnection(logger *zap.Logger, c net.Conn) {
 
 	u := *ue.NewUE(logger)
 
-	err := sendRegistrationRequest(u, c)
+	err := sendRegistrationRequest(&u, c)
 	if err != nil {
 		log.Error(err)
 		return
@@ -115,11 +115,13 @@ func handleConnection(logger *zap.Logger, c net.Conn) {
 
 }
 
-func sendRegistrationRequest(u ue.UE, c net.Conn) error {
-	regMsg := nas.NASRegRequestMsg{SecHeader: 0,
-		MobileId: nas.MobileIdType{Mcc: 0, Mnc: 0, ProtecScheme: 0, HomeNetPki: 0, Msin: 0},
-		SecCap:   nas.SecCapType{EaCap: nas.EA1, IaCap: nas.IA1 ^ nas.IA2 ^ nas.IA3 ^ nas.IA4},
+func sendRegistrationRequest(u *ue.UE, c net.Conn) error {
+	sec := nas.SecCapType{EaCap: nas.EA1, IaCap: nas.IA1 ^ nas.IA2 ^ nas.IA3 ^ nas.IA4}
+	regMsg := nas.NASRegRequestMsg{
+		MobileId: nas.MobileIdType{Mcc: 0, Mnc: 0, HomeNetPki: 0, Msin: 0},
+		SecCap:   sec,
 	}
+	u.SecCap = sec
 
 	msg, err := parser.EncodeMsg(&regMsg)
 	if err != nil {

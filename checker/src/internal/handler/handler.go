@@ -465,8 +465,8 @@ func (h *Handler) checkNullEncCore(ctx context.Context, message *enochecker.Task
 		return err
 	}
 
-	regMsg := nas.NASRegRequestMsg{SecHeader: 0,
-		MobileId: nas.MobileIdType{Mcc: 0, Mnc: 0, ProtecScheme: 0, HomeNetPki: 0, Msin: 0},
+	regMsg := nas.NASRegRequestMsg{
+		MobileId: nas.MobileIdType{Mcc: 0, Mnc: 0, HomeNetPki: 0, Msin: 0},
 		SecCap:   nas.SecCapType{EaCap: nas.EA0, IaCap: nas.IA1},
 	}
 
@@ -511,7 +511,7 @@ func (h *Handler) checkNullEncCore(ctx context.Context, message *enochecker.Task
 	}
 
 	res := crypto.IA2(authReq.Rand, key)
-	authRes := nas.NASAuthResponseMsg{SecHeader: 0, Res: res}
+	authRes := nas.NASAuthResponseMsg{Res: res}
 	authResMsg, mac, err := nas.BuildMessagePlain(&authRes)
 	if err != nil {
 		return err
@@ -677,7 +677,7 @@ func (h *Handler) checkNullEncUE(ctx context.Context, message *enochecker.TaskMe
 
 	auth := crypto.IA2(authRand, key)
 
-	authReq := nas.NASAuthRequestMsg{SecHeader: 0, Rand: randToken, AuthRand: authRand, Auth: auth}
+	authReq := nas.NASAuthRequestMsg{Rand: randToken, AuthRand: authRand, Auth: auth}
 
 	authReqbuf, mac, err := nas.BuildMessagePlain(&authReq)
 	if err != nil {
@@ -698,10 +698,10 @@ func (h *Handler) checkNullEncUE(ctx context.Context, message *enochecker.TaskMe
 		ia = 1
 	}
 
-	secModeCmd := nas.NASSecurityModeCommandMsg{SecHeader: 1, EaAlg: 0,
+	secModeCmd := nas.NASSecurityModeCommandMsg{EaAlg: 0,
 		IaAlg: 1, ReplaySecCap: sec,
 	}
-	secModeMsg, mac, err := nas.BuildMessagePlain(&secModeCmd)
+	secModeMsg, mac, err := nas.BuildMessage(0, 1, &secModeCmd, key)
 	if err != nil {
 		return err
 	}

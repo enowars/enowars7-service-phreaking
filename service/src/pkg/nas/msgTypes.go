@@ -94,19 +94,14 @@ type GmmHeader struct {
 }
 
 type MobileIdType struct {
-	// SupiFormat uint8
-	// IdType
-	Mcc uint8
-	Mnc uint8
-	// Routing indicator
-	ProtecScheme uint8
-	HomeNetPki   uint8
-	Msin         uint
+	Mcc        uint8
+	Mnc        uint8
+	HomeNetPki uint8
+	Msin       uint
 }
 
 type NASRegRequestMsg struct {
 	// Extended protocol discriminator
-	SecHeader uint8
 	// 5GS registration type
 	// ngKsi
 	MobileId MobileIdType
@@ -114,19 +109,16 @@ type NASRegRequestMsg struct {
 }
 
 type NASAuthRequestMsg struct {
-	SecHeader uint8
-	Rand      []byte
-	AuthRand  []byte
-	Auth      []byte
+	Rand     []byte
+	AuthRand []byte
+	Auth     []byte
 }
 
 type NASAuthResponseMsg struct {
-	SecHeader uint8
-	Res       []byte
+	Res []byte
 }
 
 type NASSecurityModeCommandMsg struct {
-	SecHeader    uint8
 	EaAlg        uint8
 	IaAlg        uint8
 	ReplaySecCap SecCapType
@@ -135,7 +127,6 @@ type NASSecurityModeCommandMsg struct {
 type PDUSessionEstRequestMsg struct {
 	PduSesId   uint8
 	PduSesType uint8
-	// add integrity protetion maximum data rate
 }
 
 type PDUSessionEstAcceptMsg struct {
