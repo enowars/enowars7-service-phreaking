@@ -87,6 +87,11 @@ func handleConnection(logger *zap.Logger, c net.Conn) {
 				}
 				u.ToState(ue.Authentication)
 			case msgType == nas.NASSecurityModeCommand && u.InState(ue.Authentication):
+				err = crypto.CheckIntegrity(1, msgbuf, gmm.Mac)
+				if err != nil {
+					log.Errorf("Security command not integrity protected")
+					return
+				}
 				err := u.HandleNASSecurityModeCommand(c, msgbuf)
 				if err != nil {
 					log.Errorf("Error NASSecurityModeCommand: %w", err)

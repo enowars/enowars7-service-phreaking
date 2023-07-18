@@ -393,7 +393,7 @@ func (amf *Amf) handleNASAuthResponse(c net.Conn, buf []byte, amfg *AmfGNB, ue *
 	secModeCmd := nas.NASSecurityModeCommandMsg{EaAlg: ue.EaAlg,
 		IaAlg: ue.IaAlg, ReplaySecCap: ue.SecCap,
 	}
-	secModeMsg, mac, err := nas.BuildMessagePlain(&secModeCmd)
+	secModeMsg, mac, err := nas.BuildMessage(0, 1, &secModeCmd)
 	if err != nil {
 		return errDecode
 	}

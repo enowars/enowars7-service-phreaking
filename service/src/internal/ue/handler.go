@@ -8,6 +8,8 @@ import (
 	"phreaking/internal/io"
 	"phreaking/pkg/nas"
 	"phreaking/pkg/parser"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 var (
@@ -52,6 +54,10 @@ func (u *UE) HandleNASSecurityModeCommand(c net.Conn, msgbuf []byte) error {
 	err := parser.DecodeMsg(msgbuf, &msg)
 	if err != nil {
 		return errors.New("cannot decode")
+	}
+
+	if !cmp.Equal(msg.ReplaySecCap, u.SecCap) {
+		return errors.New("replayed security capabilities does not match")
 	}
 
 	u.EaAlg = msg.EaAlg

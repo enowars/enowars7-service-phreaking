@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/gofrs/uuid v4.4.0+incompatible
+	github.com/google/go-cmp v0.5.9
 	golang.org/x/crypto v0.9.0
 	golang.org/x/net v0.10.0
 	google.golang.org/grpc v1.55.0
