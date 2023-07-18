@@ -333,7 +333,7 @@ func (amf *Amf) handleInitUEMessage(c net.Conn, buf []byte, amfg *AmfGNB) error 
 
 	ue.RandToken = randToken
 
-	authReq := nas.NASAuthRequestMsg{SecHeader: 0, Rand: ue.RandToken, AuthRand: authRand, Auth: auth}
+	authReq := nas.NASAuthRequestMsg{Rand: ue.RandToken, AuthRand: authRand, Auth: auth}
 
 	authReqbuf, mac, err := nas.BuildMessagePlain(&authReq)
 	if err != nil {
@@ -390,7 +390,7 @@ func (amf *Amf) handleNASAuthResponse(c net.Conn, buf []byte, amfg *AmfGNB, ue *
 
 	ue.EaAlg = EA
 	ue.IaAlg = IA
-	secModeCmd := nas.NASSecurityModeCommandMsg{SecHeader: 1, EaAlg: ue.EaAlg,
+	secModeCmd := nas.NASSecurityModeCommandMsg{EaAlg: ue.EaAlg,
 		IaAlg: ue.IaAlg, ReplaySecCap: ue.SecCap,
 	}
 	secModeMsg, mac, err := nas.BuildMessagePlain(&secModeCmd)

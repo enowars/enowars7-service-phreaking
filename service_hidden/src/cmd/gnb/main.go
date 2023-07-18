@@ -45,7 +45,7 @@ func handleUeConnection(ueConn net.Conn) {
 
 		//fmt.Printf("FROM UE: (NASRegRequest)\n %s\n", reg)
 
-		newreg := nas.NASRegRequestMsg{SecHeader: reg.SecHeader, MobileId: reg.MobileId}
+		newreg := nas.NASRegRequestMsg{MobileId: reg.MobileId}
 		newreg.SecCap.EaCap = reg.SecCap.EaCap
 		newreg.SecCap.IaCap = reg.SecCap.IaCap
 

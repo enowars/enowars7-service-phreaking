@@ -1,11 +1,9 @@
 package ue
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"net"
-	"os"
 	"phreaking/internal/crypto"
 	"phreaking/internal/io"
 	"phreaking/pkg/nas"
@@ -59,19 +57,10 @@ func (u *UE) HandleNASSecurityModeCommand(c net.Conn, msgbuf []byte) error {
 	u.EaAlg = msg.EaAlg
 	u.IaAlg = msg.IaAlg
 
-	location := ""
-	readFile, err := os.Open("/service/data/location.data")
+	location, err := u.GetLocation()
 	if err != nil {
 		return err
 	}
-
-	fileScanner := bufio.NewScanner(readFile)
-	fileScanner.Split(bufio.ScanLines)
-	for fileScanner.Scan() {
-		location = fileScanner.Text()
-	}
-	readFile.Close()
-
 	loc := nas.LocationUpdateMsg{Location: location}
 	locMsg, mac, err := nas.BuildMessage(u.EaAlg, u.IaAlg, &loc)
 	if err != nil {
@@ -106,7 +95,7 @@ func (u *UE) HandleNASAuthRequest(c net.Conn, msgbuf []byte) error {
 	}
 
 	res := crypto.IA2(msg.Rand)
-	authRes := nas.NASAuthResponseMsg{SecHeader: 0, Res: res}
+	authRes := nas.NASAuthResponseMsg{Res: res}
 	authResMsg, mac, err := nas.BuildMessagePlain(&authRes)
 	if err != nil {
 		return err
