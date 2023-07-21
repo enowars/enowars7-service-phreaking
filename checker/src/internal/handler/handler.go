@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	crand "crypto/rand"
 	"errors"
+	"fmt"
 	mrand "math/rand"
 	"net"
 	"os"
@@ -693,15 +694,16 @@ func (h *Handler) checkNullEncUE(ctx context.Context, message *enochecker.TaskMe
 		return err
 	}
 
-	ia := mrand.Intn(4)
+	ea := 0
+	ia := mrand.Intn(5)
 	if ia == 0 {
 		ia = 1
 	}
 
-	secModeCmd := nas.NASSecurityModeCommandMsg{EaAlg: 0,
-		IaAlg: 1, ReplaySecCap: sec,
+	secModeCmd := nas.NASSecurityModeCommandMsg{EaAlg: uint8(ea),
+		IaAlg: uint8(ia), ReplaySecCap: sec,
 	}
-	secModeMsg, mac, err := nas.BuildMessage(0, 1, &secModeCmd, key)
+	secModeMsg, mac, err := nas.BuildMessagePlain(&secModeCmd)
 	if err != nil {
 		return err
 	}
@@ -720,13 +722,15 @@ func (h *Handler) checkNullEncUE(ctx context.Context, message *enochecker.TaskMe
 	}
 
 	var loc nas.LocationUpdateMsg
+	err = crypto.CheckIntegrity(uint8(ia), gmm.Message, gmm.Mac, key)
+	if err != nil {
+		return fmt.Errorf("Integrity alg %d not working for UE", ia)
+	}
 	err = parser.DecodeMsg(gmm.Message, &loc)
 	if err != nil {
-		return errors.New("UE null encryption not working")
+		return errors.New("Null encryption not working")
 	}
-
 	return nil
-
 }
 
 func (h *Handler) gnb(ctx context.Context, message *enochecker.TaskMessage, port string) error {
