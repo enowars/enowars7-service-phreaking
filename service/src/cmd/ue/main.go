@@ -118,7 +118,7 @@ func handleConnection(logger *zap.Logger, c net.Conn) {
 func sendRegistrationRequest(u *ue.UE, c net.Conn) error {
 	sec := nas.SecCapType{EaCap: nas.EA1, IaCap: nas.IA1 ^ nas.IA2 ^ nas.IA3 ^ nas.IA4}
 	regMsg := nas.NASRegRequestMsg{
-		MobileId: nas.MobileIdType{Mcc: 0, Mnc: 0, HomeNetPki: 0, Msin: 0},
+		MobileId: nas.MobileIdType{Mcc: 1, Mnc: 1, HomeNetPki: 0, Msin: 0},
 		SecCap:   sec,
 	}
 	u.SecCap = sec

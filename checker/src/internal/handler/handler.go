@@ -467,7 +467,7 @@ func (h *Handler) checkNullEncCore(ctx context.Context, message *enochecker.Task
 	}
 
 	regMsg := nas.NASRegRequestMsg{
-		MobileId: nas.MobileIdType{Mcc: 0, Mnc: 0, HomeNetPki: 0, Msin: 0},
+		MobileId: nas.MobileIdType{Mcc: 1, Mnc: 1, HomeNetPki: 0, Msin: 0},
 		SecCap:   nas.SecCapType{EaCap: nas.EA0, IaCap: nas.IA1},
 	}
 
@@ -593,7 +593,7 @@ func (h *Handler) checkNullEncCore(ctx context.Context, message *enochecker.Task
 		return err
 	}
 
-	pduReq := nas.PDUReqMsg{PduSesId: pduEstAcc.PduSesId, Request: []byte("http://httpbin.org/html")}
+	pduReq := nas.PDUReqMsg{PduSesId: pduEstAcc.PduSesId, Request: []byte("gopher://gopher.website.org/")}
 
 	pduReqMsg, mac, err := nas.BuildMessage(0, secMode.IaAlg, &pduReq, key)
 	if err != nil {
