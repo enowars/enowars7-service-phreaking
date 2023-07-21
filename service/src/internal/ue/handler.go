@@ -36,7 +36,7 @@ func (u *UE) HandlePDUSessionEstAccept(c net.Conn, msgbuf []byte) error {
 
 	u.ActivePduId = msg.PduSesId
 
-	pduReq := nas.PDUReqMsg{PduSesId: u.ActivePduId, Request: []byte("http://httpbin.org/html")}
+	pduReq := nas.PDUReqMsg{PduSesId: u.ActivePduId, Request: []byte("gopher://gopher.website.org/")}
 
 	pduReqMsg, mac, err := nas.BuildMessage(u.EaAlg, u.IaAlg, &pduReq)
 	if err != nil {
