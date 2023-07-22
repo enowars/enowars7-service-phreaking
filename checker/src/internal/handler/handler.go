@@ -50,6 +50,10 @@ func New(log *zap.Logger, db *redis.Client) *Handler {
 	}
 }
 
+func createMumble(prefix string, err error) error {
+	return enochecker.NewMumbleError(errors.New(prefix + ": " + err.Error()))
+}
+
 func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) (*enochecker.HandlerInfo, error) {
 	portNum := strconv.Itoa(int(message.CurrentRoundId % 10))
 	port := "993" + portNum
@@ -81,27 +85,27 @@ func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) 
 func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskMessage) error {
 	coretcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":3399")
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	coreConn, err := net.DialTCP("tcp", nil, coretcpAddr)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	port, err := h.db.Get(ctx, message.TaskChainId).Result()
 	if err != nil {
-		return enochecker.NewMumbleError(errors.New("no entry for task id"))
+		return createMumble("Get flag", errors.New("no entry for task id"))
 	}
 
 	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	ueConn, err := net.DialTCP("tcp", nil, uetcpAddr)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	defer func() {
@@ -112,57 +116,57 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 	setup := ngap.NGSetupRequestMsg{GranId: 0, Tac: 0, Plmn: 0}
 	err = io.SendNgapMsg(coreConn, ngap.NGSetupRequest, &setup)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	_, err = io.Recv(coreConn)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	var gmm nas.GmmHeader
 
 	reply, err := io.Recv(ueConn)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	err = parser.DecodeMsg(reply, &gmm)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	initUeMsg := ngap.InitUEMessageMsg{NasPdu: gmm, RanUeNgapId: 1}
 	err = io.SendNgapMsg(coreConn, ngap.InitUEMessage, &initUeMsg)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	// AuthReq
 	reply, err = io.Recv(coreConn)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 	var ngapHeader ngap.NgapHeader
 	err = parser.DecodeMsg(reply, &ngapHeader)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	var down ngap.DownNASTransMsg
 	err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	err = io.SendGmm(ueConn, down.NasPdu)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	reply, err = io.Recv(ueConn)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	amfUeNgapId := down.AmfUeNgapId
@@ -172,49 +176,49 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 	gmm = nas.GmmHeader{}
 	err = parser.DecodeMsg(reply, &gmm)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	up := ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
 	err = io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	// SecModeCmd
 	reply, err = io.Recv(coreConn)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	ngapHeader = ngap.NgapHeader{}
 	err = parser.DecodeMsg(reply, &ngapHeader)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	down = ngap.DownNASTransMsg{}
 
 	err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	err = io.SendGmm(ueConn, down.NasPdu)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	// LocationUpdate
 	reply, err = io.Recv(ueConn)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	gmm = nas.GmmHeader{}
 	err = parser.DecodeMsg(reply, &gmm)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	keyEnvVar := "PHREAKING_" + strconv.Itoa(int(message.TeamId)) + "_SIM_KEY"
@@ -223,13 +227,13 @@ func (h *Handler) getFlagLocation(ctx context.Context, message *enochecker.TaskM
 
 	dec, err := crypto.DecryptAES(gmm.Message, key)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 
 	var loc nas.LocationUpdateMsg
 	err = parser.DecodeMsg(dec, &loc)
 	if err != nil {
-		return err
+		return createMumble("Get flag", err)
 	}
 	if loc.Location == message.Flag {
 		return nil
@@ -443,12 +447,12 @@ func (h *Handler) checkNullEncCore(ctx context.Context, message *enochecker.Task
 
 	coretcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":3399")
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	coreConn, err := net.DialTCP("tcp", nil, coretcpAddr)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	defer func() {
@@ -458,12 +462,12 @@ func (h *Handler) checkNullEncCore(ctx context.Context, message *enochecker.Task
 	setup := ngap.NGSetupRequestMsg{GranId: 0, Tac: 0, Plmn: 0}
 	err = io.SendNgapMsg(coreConn, ngap.NGSetupRequest, &setup)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	_, err = io.Recv(coreConn)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	regMsg := nas.NASRegRequestMsg{
@@ -473,30 +477,30 @@ func (h *Handler) checkNullEncCore(ctx context.Context, message *enochecker.Task
 
 	msg, err := parser.EncodeMsg(&regMsg)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	gmm := nas.GmmHeader{Security: false, Mac: [8]byte{}, MessageType: nas.NASRegRequest, Message: msg}
 	initUeMsg := ngap.InitUEMessageMsg{NasPdu: gmm, RanUeNgapId: 1}
 	err = io.SendNgapMsg(coreConn, ngap.InitUEMessage, &initUeMsg)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	reply, err := io.Recv(coreConn)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 	var ngapHeader ngap.NgapHeader
 	err = parser.DecodeMsg(reply, &ngapHeader)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	var down ngap.DownNASTransMsg
 	err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	amfUeNgapId := down.AmfUeNgapId
@@ -504,132 +508,132 @@ func (h *Handler) checkNullEncCore(ctx context.Context, message *enochecker.Task
 	var authReq nas.NASAuthRequestMsg
 	err = parser.DecodeMsg(down.NasPdu.Message, &authReq)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	if !(bytes.Equal(crypto.IA2(authReq.AuthRand, key), authReq.Auth)) {
-		return errors.New("cannot authenticate core")
+		return createMumble("Noise", errors.New("cannot authenticate core"))
 	}
 
 	res := crypto.IA2(authReq.Rand, key)
 	authRes := nas.NASAuthResponseMsg{Res: res}
 	authResMsg, mac, err := nas.BuildMessagePlain(&authRes)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	gmm = nas.GmmHeader{Security: false, Mac: mac, MessageType: nas.NASAuthResponse, Message: authResMsg}
 	up := ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
 	err = io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	// SecModeCmd
 	reply, err = io.Recv(coreConn)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	ngapHeader = ngap.NgapHeader{}
 	err = parser.DecodeMsg(reply, &ngapHeader)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	down = ngap.DownNASTransMsg{}
 
 	err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	var secMode nas.NASSecurityModeCommandMsg
 	err = parser.DecodeMsg(down.NasPdu.Message, &secMode)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	if secMode.EaAlg != 0 {
-		return errors.New("null encryption not chosen in security mode command")
+		return createMumble("Noise core", errors.New("null encryption not chosen in security mode command"))
 
 	}
 
 	pduEstReq := nas.PDUSessionEstRequestMsg{PduSesId: 0, PduSesType: 0}
 	pduEstReqMsg, mac, err := nas.BuildMessage(0, secMode.IaAlg, &pduEstReq, key)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 	gmm = nas.GmmHeader{Security: true, Mac: mac, MessageType: nas.PDUSessionEstRequest, Message: pduEstReqMsg}
 	up = ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
 	err = io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	// PDUSessionAccept
 	reply, err = io.Recv(coreConn)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	ngapHeader = ngap.NgapHeader{}
 	err = parser.DecodeMsg(reply, &ngapHeader)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	down = ngap.DownNASTransMsg{}
 
 	err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	var pduEstAcc nas.PDUSessionEstAcceptMsg
 
 	err = parser.DecodeMsg(down.NasPdu.Message, &pduEstAcc)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	pduReq := nas.PDUReqMsg{PduSesId: pduEstAcc.PduSesId, Request: []byte("gopher://gopher.website.org/")}
 
 	pduReqMsg, mac, err := nas.BuildMessage(0, secMode.IaAlg, &pduReq, key)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	gmm = nas.GmmHeader{Security: true, Mac: mac, MessageType: nas.PDUReq, Message: pduReqMsg}
 	up = ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
 	err = io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	reply, err = io.Recv(coreConn)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	ngapHeader = ngap.NgapHeader{}
 	err = parser.DecodeMsg(reply, &ngapHeader)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	down = ngap.DownNASTransMsg{}
 
 	err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 
 	var pduRes nas.PDUResMsg
 
 	err = parser.DecodeMsg(down.NasPdu.Message, &pduRes)
 	if err != nil {
-		return err
+		return createMumble("Noise core", err)
 	}
 	return nil
 }
@@ -640,12 +644,12 @@ func (h *Handler) checkNullEncUE(ctx context.Context, message *enochecker.TaskMe
 
 	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
 	if err != nil {
-		return err
+		return createMumble("Noise UE", err)
 	}
 
 	ueConn, err := net.DialTCP("tcp", nil, uetcpAddr)
 	if err != nil {
-		return err
+		return createMumble("Noise UE", err)
 	}
 
 	defer ueConn.Close()
@@ -654,18 +658,18 @@ func (h *Handler) checkNullEncUE(ctx context.Context, message *enochecker.TaskMe
 
 	regreqmsg, err := io.Recv(ueConn)
 	if err != nil {
-		return err
+		return createMumble("Noise UE", err)
 	}
 
 	err = parser.DecodeMsg(regreqmsg, &gmm)
 	if err != nil {
-		return err
+		return createMumble("Noise UE", err)
 	}
 
 	var regreq nas.NASRegRequestMsg
 	err = parser.DecodeMsg(gmm.Message, &regreq)
 	if err != nil {
-		return err
+		return createMumble("Noise UE", err)
 	}
 
 	sec := regreq.SecCap
@@ -682,7 +686,7 @@ func (h *Handler) checkNullEncUE(ctx context.Context, message *enochecker.TaskMe
 
 	authReqbuf, mac, err := nas.BuildMessagePlain(&authReq)
 	if err != nil {
-		return err
+		return createMumble("Noise UE", err)
 	}
 
 	gmm = nas.GmmHeader{false, mac, nas.NASAuthRequest, authReqbuf}
@@ -691,7 +695,7 @@ func (h *Handler) checkNullEncUE(ctx context.Context, message *enochecker.TaskMe
 
 	_, err = io.Recv(ueConn)
 	if err != nil {
-		return err
+		return createMumble("Noise UE", err)
 	}
 
 	ea := 0
@@ -705,7 +709,7 @@ func (h *Handler) checkNullEncUE(ctx context.Context, message *enochecker.TaskMe
 	}
 	secModeMsg, mac, err := nas.BuildMessagePlain(&secModeCmd)
 	if err != nil {
-		return err
+		return createMumble("Noise UE", err)
 	}
 
 	gmm = nas.GmmHeader{false, mac, nas.NASSecurityModeCommand, secModeMsg}
@@ -713,22 +717,22 @@ func (h *Handler) checkNullEncUE(ctx context.Context, message *enochecker.TaskMe
 
 	locupdatemsg, err := io.Recv(ueConn)
 	if err != nil {
-		return err
+		return createMumble("Noise UE", err)
 	}
 
 	err = parser.DecodeMsg(locupdatemsg, &gmm)
 	if err != nil {
-		return err
+		return createMumble("Noise UE", err)
 	}
 
 	var loc nas.LocationUpdateMsg
 	err = crypto.CheckIntegrity(uint8(ia), gmm.Message, gmm.Mac, key)
 	if err != nil {
-		return fmt.Errorf("Integrity alg %d not working for UE", ia)
+		return createMumble("Noise UE", fmt.Errorf("Integrity alg %d not working for UE", ia))
 	}
 	err = parser.DecodeMsg(gmm.Message, &loc)
 	if err != nil {
-		return errors.New("Null encryption not working")
+		return createMumble("Noise UE", errors.New("Null encryption not working"))
 	}
 	return nil
 }
@@ -736,22 +740,22 @@ func (h *Handler) checkNullEncUE(ctx context.Context, message *enochecker.TaskMe
 func (h *Handler) gnb(ctx context.Context, message *enochecker.TaskMessage, port string) error {
 	coretcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":3399")
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	coreConn, err := net.DialTCP("tcp", nil, coretcpAddr)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	ueConn, err := net.DialTCP("tcp", nil, uetcpAddr)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	defer func() {
@@ -762,57 +766,57 @@ func (h *Handler) gnb(ctx context.Context, message *enochecker.TaskMessage, port
 	setup := ngap.NGSetupRequestMsg{GranId: 0, Tac: 0, Plmn: 0}
 	err = io.SendNgapMsg(coreConn, ngap.NGSetupRequest, &setup)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	_, err = io.Recv(coreConn)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	var gmm nas.GmmHeader
 
 	reply, err := io.Recv(ueConn)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	err = parser.DecodeMsg(reply, &gmm)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	initUeMsg := ngap.InitUEMessageMsg{NasPdu: gmm, RanUeNgapId: 1}
 	err = io.SendNgapMsg(coreConn, ngap.InitUEMessage, &initUeMsg)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	// AuthReq
 	reply, err = io.Recv(coreConn)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 	var ngapHeader ngap.NgapHeader
 	err = parser.DecodeMsg(reply, &ngapHeader)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	var down ngap.DownNASTransMsg
 	err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	err = io.SendGmm(ueConn, down.NasPdu)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	reply, err = io.Recv(ueConn)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	amfUeNgapId := down.AmfUeNgapId
@@ -822,142 +826,142 @@ func (h *Handler) gnb(ctx context.Context, message *enochecker.TaskMessage, port
 	gmm = nas.GmmHeader{}
 	err = parser.DecodeMsg(reply, &gmm)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	up := ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
 	err = io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	// SecModeCmd
 	reply, err = io.Recv(coreConn)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	ngapHeader = ngap.NgapHeader{}
 	err = parser.DecodeMsg(reply, &ngapHeader)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	down = ngap.DownNASTransMsg{}
 
 	err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	err = io.SendGmm(ueConn, down.NasPdu)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	// LocationUpdate
 	reply, err = io.Recv(ueConn)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	gmm = nas.GmmHeader{}
 	err = parser.DecodeMsg(reply, &gmm)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	up = ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
 	err = io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	// PDUSessionReq
 	reply, err = io.Recv(ueConn)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	gmm = nas.GmmHeader{}
 	err = parser.DecodeMsg(reply, &gmm)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	up = ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
 	err = io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	// PDUSessionAccept
 
 	reply, err = io.Recv(coreConn)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	ngapHeader = ngap.NgapHeader{}
 	err = parser.DecodeMsg(reply, &ngapHeader)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	down = ngap.DownNASTransMsg{}
 
 	err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	err = io.SendGmm(ueConn, down.NasPdu)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	// PDUReq
 
 	reply, err = io.Recv(ueConn)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	gmm = nas.GmmHeader{}
 	err = parser.DecodeMsg(reply, &gmm)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	up = ngap.UpNASTransMsg{NasPdu: gmm, RanUeNgapId: 1, AmfUeNgapId: amfUeNgapId}
 	err = io.SendNgapMsg(coreConn, ngap.UpNASTrans, &up)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	// PDURes
 
 	reply, err = io.Recv(coreConn)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	ngapHeader = ngap.NgapHeader{}
 	err = parser.DecodeMsg(reply, &ngapHeader)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	down = ngap.DownNASTransMsg{}
 
 	err = parser.DecodeMsg(ngapHeader.NgapPdu, &down)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	err = io.SendGmm(ueConn, down.NasPdu)
 	if err != nil {
-		return err
+		return createMumble("Noise gNB", err)
 	}
 
 	return nil
@@ -989,22 +993,22 @@ func (h *Handler) getRandomBytes(maxSize int) []byte {
 func (h *Handler) randomData(ctx context.Context, message *enochecker.TaskMessage, port string) error {
 	coretcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":3399")
 	if err != nil {
-		return err
+		return enochecker.NewMumbleError(err)
 	}
 
 	coreConn, err := net.DialTCP("tcp", nil, coretcpAddr)
 	if err != nil {
-		return err
+		return enochecker.NewMumbleError(err)
 	}
 
 	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
 	if err != nil {
-		return err
+		return enochecker.NewMumbleError(err)
 	}
 
 	ueConn, err := net.DialTCP("tcp", nil, uetcpAddr)
 	if err != nil {
-		return err
+		return enochecker.NewMumbleError(err)
 	}
 
 	defer func() {
@@ -1028,22 +1032,22 @@ func (h *Handler) randomData(ctx context.Context, message *enochecker.TaskMessag
 func (h *Handler) randomGmm(ctx context.Context, message *enochecker.TaskMessage, port string) error {
 	coretcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":3399")
 	if err != nil {
-		return err
+		return enochecker.NewMumbleError(err)
 	}
 
 	coreConn, err := net.DialTCP("tcp", nil, coretcpAddr)
 	if err != nil {
-		return err
+		return enochecker.NewMumbleError(err)
 	}
 
 	uetcpAddr, err := net.ResolveTCPAddr("tcp", message.Address+":"+port)
 	if err != nil {
-		return err
+		return enochecker.NewMumbleError(err)
 	}
 
 	ueConn, err := net.DialTCP("tcp", nil, uetcpAddr)
 	if err != nil {
-		return err
+		return enochecker.NewMumbleError(err)
 	}
 
 	defer func() {
@@ -1053,7 +1057,7 @@ func (h *Handler) randomGmm(ctx context.Context, message *enochecker.TaskMessage
 
 	_, err = io.Recv(ueConn)
 	if err != nil {
-		return err
+		return enochecker.NewMumbleError(err)
 	}
 
 	for i := 0; i < mrand.Intn(3); i++ {
