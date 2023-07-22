@@ -72,7 +72,7 @@ func (h *Handler) PutFlag(ctx context.Context, message *enochecker.TaskMessage) 
 	ctx_grpc := metadata.NewOutgoingContext(context.Background(), md)
 	_, err = c.UpdateLocation(ctx_grpc, &pb.Loc{Position: message.Flag})
 	if err != nil {
-		return nil, err
+		return nil, enochecker.NewMumbleError(errors.New("put flag failed"))
 	}
 	port = "606" + portNum
 	if err = h.db.Set(ctx, message.TaskChainId, port, 0).Err(); err != nil {
