@@ -48,7 +48,12 @@ func EncryptAES(input []byte, key []byte) ([]byte, error) {
 	return buf, nil
 }
 
-func DecryptAES(ct []byte, key []byte) ([]byte, error) {
+func DecryptAES(ct []byte, key []byte) (plainText []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.New("Decrypt paniced")
+		}
+	}()
 	aesBlock, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
