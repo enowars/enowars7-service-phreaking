@@ -707,7 +707,7 @@ func (h *Handler) checkNullEncUE(ctx context.Context, message *enochecker.TaskMe
 	secModeCmd := nas.NASSecurityModeCommandMsg{EaAlg: uint8(ea),
 		IaAlg: uint8(ia), ReplaySecCap: sec,
 	}
-	secModeMsg, mac, err := nas.BuildMessage(uint8(ea), 2, &secModeCmd, key)
+	secModeMsg, mac, err := nas.BuildMessage(uint8(ea), uint8(nas.IA2), &secModeCmd, key)
 	if err != nil {
 		return createMumble("Noise UE", err)
 	}
