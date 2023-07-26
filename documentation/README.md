@@ -30,9 +30,9 @@ type NASRegRequestMsg struct {
 	SecCap   SecCapType
 }
 ```
-The `SecCap` field is used by the UE to announce which encryption and integrity algorithms it supports. When the core later on sends the `SecurityModeCommand` message, it chooses the highest version of encryption and integrity algorithm from the security capabilities it got from the UE earlier in an earlier message. 
+The `SecCap` field is used by the UE to announce which encryption and integrity algorithms it supports. When the core later on sends the `SecurityModeCommand` message, it chooses the highest version of encryption and integrity algorithm from the security capabilities it received in the `NASRegRequestMsg`. 
 
-There is no integrity protection on messages before the `LocationUpdate` message. So when an attacker have control over the gNB serving the UE (by using the gNB binary or writing their own tool), they are able to change any fields of the messages forwarded to the Core. So the attacker can control which encryption algorithms that are used. Null encryption can be forced and the flag can be extracted in clear text from the `LocationUpdate` message.
+There is no integrity protection on messages before the `LocationUpdate` message. So when an attacker have control over the gNB serving the UE (by using the gNB binary or writing their own tool), they are able to change any fields of the messages forwarded to the Core and it will be accepted. Changing `SecCap.EaCap` to 0 will disable encryption and the flag can be extracted in clear text from the `LocationUpdate` message.
 
 
 # Exploits
@@ -41,7 +41,7 @@ Both of the following exploits uses the same vulnerability, where `EaCap` is set
 
 ## Re-use code
 
-Message structs are encoded/decoded to/from bytes using the [gob](https://pkg.go.dev/encoding/gob) library in golang, which are then sent over TCP. An attacker needs to find which bytes that corresponds to the `EaCap` field. One way of doing this without digging through the raw bytes and the gob specification, is reusing code from the original service. This exploit parse bytes from the UE into a struct, change the `EaCap` field to 0 in the struct programmatically in go, encode and forwards the modified message to the Core. Here is the essence of the exploit which can be found in the [checker](https://github.com/enowars/enowars7-service-phreaking/blob/e1c7a0522583c0448f78c2c65a6c605be673de28/checker/src/internal/handler/handler.go#L257):
+Message structs are encoded/decoded to/from bytes using the [gob](https://pkg.go.dev/encoding/gob) library in golang, which are then sent over TCP. An attacker needs to find which bytes that corresponds to the `EaCap` field. One way of doing this without digging through the raw bytes and the gob specification, is reusing code from the original service. This exploit parse bytes from the UE into a struct, change the `EaCap` field to 0 in the struct programmatically in go, encode and forwards the modified message to the Core. Full code for the exploit can be found in the [checker](https://github.com/enowars/enowars7-service-phreaking/blob/e1c7a0522583c0448f78c2c65a6c605be673de28/checker/src/internal/handler/handler.go#L257), but the essence of it given here:
 
 ```go
 // Receive the raw bytes from UE socket
@@ -107,7 +107,7 @@ newreg.SecCap.IaCap = reg.SecCap.IaCap
 msg, err := parser.EncodeMsg(&newreg)
 ```
 
-Opening the binary in [Ghidra](https://github.com/NationalSecurityAgency/ghidra) and looking through the assembly code, we can find the copying of fields (instructions at 0050519d and 005051a1 corresponds to setting EaCap):
+Opening the binary in [Ghidra](https://github.com/NationalSecurityAgency/ghidra) and looking through the assembly code, we can find the copying of fields (instructions at 0050519d and 005051a1 corresponds to setting `EaCap` for `newreg`):
 
 ![Assembly of original binary](ghidra_not_patched.png)
 
@@ -121,9 +121,9 @@ This patch will hardcode EaCap to 0 for every forwarded registration request. A 
 
 To fix the vulnerability the core needs to apply integrity protection to the SecurityModeCommand message. The UE need to check the integrity of the message and confirm that the replayed security capabilities matches what it sent in the RegistrationRequest message.
 
-![Fixed protocol](protocol_fixed.png)
-
 A fixed version of the service can be found in the `fixed` branch.
+
+![Fixed protocol](protocol_fixed.png)
 
 Add MAC using integrity algorithm IA2 to security mode command message in the Core:
 
@@ -143,7 +143,7 @@ Add MAC using integrity algorithm IA2 to security mode command message in the Co
 
 The UE checks if the security mode command is integrity protected using ANY integrity algorithm:
 
-*Note: The checker simulates a Core network and will try to connect UE with null encryption, with a valid MAC - which is a feature to be supported by the service. Since a defending team might not know which integrity algorithm the checker uses for the MAC, checking for ANY algorithm might be needed*.
+*Note: The checker simulates a Core network and will try to connect UE with null encryption, with a valid MAC - which is a feature to be supported by the service. Since a defending team might not know which integrity algorithm the checker uses for the MAC, checking for ANY algorithm might be needed. But can also be deducted by looking at the traffic coming to the service*.
 
 ```diff
 --- a/service/src/cmd/ue/main.go
