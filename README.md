@@ -26,11 +26,14 @@ Each UE will only send one `LocationUpdate` message, containing one flag. To mak
 
 ### Secrets
 
-The service uses symmetric encryption (AES), thus each team playing this service need a unique key. The checker also needs to have the key for each team. The secrets are set in the `.env` file in the same folder as the docker-compose file for both the service and checker. The secrets are:
+The service uses symmetric encryption (AES), thus each team playing this service need a unique key. The checker also needs to have the key for each team. The secrets are set in the `.env` file in the same folder as the docker-compose file for both the service and checker. 
 
-- `PHREAKING_GRPC_PASS`
-    - Password for the gRPC server
-- `PHREAKING_SIM_KEY`
-    - Key used for AES, must be of length 32.
+- Service secrets:
+    - `PHREAKING_GRPC_PASS`: Password for the gRPC server
+    - `PHREAKING_SIM_KEY`: Key used for AES, must be of length 32.
+- Checker secrets:
+    - `PHREAKING_<N>_GRPC_PASS`: Password for the gRPC server. N is team number
+    - `PHREAKING_<N>_SIM_KEY`: Key used for AES, must be of length 32. N is team number
+    - `REDIS_PASS`: Password for checker db.
 
 Script for generating secrets for each team can be found in this [PR](https://github.com/enowars/bambictf/pull/55/files).
